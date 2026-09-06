@@ -39,10 +39,88 @@ using std::wstring;
 
 void Podo::Reset()
 {
-	ResetScreenMode();
-	ResetInterfaces();
+	FlushCommandQueue();
 
-	m_needResetScreenMode = false;
+	if (NeedResetScreenMode() == true)
+	{
+		ResetScreenMode();
+
+		m_needResetFactory		= true;
+		m_needResetSwapChain	= true;
+	}
+
+	if (NeedResetFactory() == true)
+	{
+		ResetFactory();
+		ResetAdapterAndOutput();
+
+		m_needResetDevice		= true;
+		m_needResetSwapChain	= true;
+	}
+
+	if (NeedResetDevice() == true)
+	{
+		ResetDevice();
+		ResetFence();
+		ResetFenceEvent();
+		ResetCommandQueue();
+		ResetCommandAllocator();
+		ResetCommandList();
+
+		ResetDescriptorHeapRTV();
+		ResetDescriptorHeapDSV();
+		ResetDescriptorHeapCBVSRVUAV();
+
+		m_needResetSwapChain	= true;
+		m_needResetAsset		= true;
+		m_needResetPSO			= true;
+	}
+	
+	if (NeedResetSwapChain() == true)
+	{
+		ResetHDRSwapChainSupport();
+		ResetSwapChain();
+		ResetBackBufferInfo();
+		ResetViewPort();
+		ResetScissorRectangle();
+		ResetDepthStencilBuffer();
+
+		ResetRTV();
+		ResetDSV();
+
+		m_needResetPSO = true;
+	}
+
+	if (NeedResetAsset() == true)
+	{
+		ResetAssets();
+		ResetObjects();
+
+		ResetCBVSRVUAV();
+	}
+
+	if (NeedResetPSO() == true)
+	{
+		ResetRootSignature();
+		ResetPipelineStateObject();
+		ResetImGui();
+	}
+
+	m_needResetScreenMode	= false;
+	m_needResetFactory		= false;
+	m_needResetDevice		= false;
+	m_needResetSwapChain	= false;
+	m_needResetAsset		= false;
+	m_needResetPSO			= false;
+
+	m_optionFullScreen.DebugPrint();
+	m_optionWindowSave.DebugPrint();
+	m_optionVSync.DebugPrint();
+	m_optionTearing.DebugPrint();
+	m_optionHDR.DebugPrint();
+	m_optionRayTracing.DebugPrint();
+	m_optionMeshShader.DebugPrint();
+	m_optionGUI.DebugPrint();
 }
 
 void Podo::ResetScreenMode()
@@ -66,10 +144,10 @@ void Podo::ResetFullScreenMode()
 	monitorInfo.cbSize = sizeof(MONITORINFO);
 	GetMonitorInfo(monitor, &monitorInfo);
 
-	LONG monitorBaseX	= monitorInfo.rcMonitor.left;
-	LONG monitorBaseY	= monitorInfo.rcMonitor.top;
-	LONG monitorWidth	= monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
-	LONG monitorHeight	= monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+	LONG monitorBaseX = monitorInfo.rcMonitor.left;
+	LONG monitorBaseY = monitorInfo.rcMonitor.top;
+	LONG monitorWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+	LONG monitorHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
 
 	SetWindowPos
 	(
@@ -97,63 +175,6 @@ void Podo::ResetWindowMode()
 		m_optionWindowSave.GetWindowHeight(),
 		SWP_NOOWNERZORDER | SWP_FRAMECHANGED
 	);
-}
-
-void Podo::ResetInterfaces()
-{
-	FlushCommandQueue();
-
-	{
-		ResetFactory();
-		ResetAdapterAndOutput();
-
-		{
-			ResetDevice();
-			ResetFence();
-			ResetFenceEvent();
-			ResetCommandQueue();
-			ResetCommandAllocator();
-			ResetCommandList();
-
-			ResetDescriptorHeapRTV();
-			ResetDescriptorHeapDSV();
-			ResetDescriptorHeapCBVSRVUAV();
-
-			{
-				ResetHDRSwapChainSupport();
-				ResetSwapChain();
-				ResetBackBufferInfo();
-				ResetViewPort();
-				ResetScissorRectangle();
-				ResetDepthStencilBuffer();
-
-				ResetRTV();
-				ResetDSV();
-			}
-
-			{
-				ResetAssets();
-				ResetObjects();
-
-				ResetCBVSRVUAV();
-			}
-
-			ResetRootSignature();
-			ResetPipelineStateObject();
-			ResetImGui();
-		}
-	}
-	
-	m_optionFullScreen.DebugPrint();
-	m_optionWindowSave.DebugPrint();
-	m_optionVSync.DebugPrint();
-	m_optionTearing.DebugPrint();
-	m_optionHDR.DebugPrint();
-	m_optionRayTracing.DebugPrint();
-	m_optionMeshShader.DebugPrint();
-	m_optionGUI.DebugPrint();
-
-	m_needResetInterfaces = false;
 }
 
 void Podo::ResetFactory()
@@ -273,81 +294,87 @@ void Podo::ResetDevice()
 		D3D12CreateDevice(m_dxgiAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(m_device.ReleaseAndGetAddressOf()))
 	);
 
-	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_6 };
-	ThrowIfFailed(m_device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)));
+	{
+		D3D12_FEATURE_DATA_SHADER_MODEL shaderModel = { D3D_SHADER_MODEL_6_6 };
+		ThrowIfFailed(m_device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)));
+	}
 
-	D3D12_FEATURE_DATA_FORMAT_SUPPORT backBufferFormatSDRQuery =
 	{
-		m_screenBackBufferFormatSDR,
-		D3D12_FORMAT_SUPPORT1_NONE,
-		D3D12_FORMAT_SUPPORT2_NONE
-	};
-	D3D12_FEATURE_DATA_FORMAT_SUPPORT backBufferFormatHDRQuery =
-	{
-		m_screenBackBufferFormatHDR,
-		D3D12_FORMAT_SUPPORT1_NONE,
-		D3D12_FORMAT_SUPPORT2_NONE
-	};
-	D3D12_FEATURE_DATA_FORMAT_SUPPORT depthStencilFormatQuery =
-	{
-		m_screenDepthStencilBufferFormat,
-		D3D12_FORMAT_SUPPORT1_NONE,
-		D3D12_FORMAT_SUPPORT2_NONE
-	};
+		D3D12_FEATURE_DATA_FORMAT_SUPPORT backBufferFormatSDRQuery =
+		{
+			m_screenBackBufferFormatSDR,
+			D3D12_FORMAT_SUPPORT1_NONE,
+			D3D12_FORMAT_SUPPORT2_NONE
+		};
+		D3D12_FEATURE_DATA_FORMAT_SUPPORT backBufferFormatHDRQuery =
+		{
+			m_screenBackBufferFormatHDR,
+			D3D12_FORMAT_SUPPORT1_NONE,
+			D3D12_FORMAT_SUPPORT2_NONE
+		};
+		D3D12_FEATURE_DATA_FORMAT_SUPPORT depthStencilFormatQuery =
+		{
+			m_screenDepthStencilBufferFormat,
+			D3D12_FORMAT_SUPPORT1_NONE,
+			D3D12_FORMAT_SUPPORT2_NONE
+		};
 
-	ThrowIfFailed
-	(
-		m_device->CheckFeatureSupport
+		ThrowIfFailed
 		(
-			D3D12_FEATURE_FORMAT_SUPPORT, &depthStencilFormatQuery, sizeof(depthStencilFormatQuery)
-		)
-	);
-	ThrowIfFailed
-	(
-		m_device->CheckFeatureSupport
+			m_device->CheckFeatureSupport
+			(
+				D3D12_FEATURE_FORMAT_SUPPORT, &depthStencilFormatQuery, sizeof(depthStencilFormatQuery)
+			)
+		);
+		ThrowIfFailed
 		(
-			D3D12_FEATURE_FORMAT_SUPPORT, &backBufferFormatSDRQuery, sizeof(backBufferFormatSDRQuery)
-		)
-	);
-	HRESULT hdrQueryResult = m_device->CheckFeatureSupport
-	(
-		D3D12_FEATURE_FORMAT_SUPPORT, &backBufferFormatHDRQuery, sizeof(backBufferFormatHDRQuery)
-	);
+			m_device->CheckFeatureSupport
+			(
+				D3D12_FEATURE_FORMAT_SUPPORT, &backBufferFormatSDRQuery, sizeof(backBufferFormatSDRQuery)
+			)
+		);
+		HRESULT hdrQueryResult = m_device->CheckFeatureSupport
+		(
+			D3D12_FEATURE_FORMAT_SUPPORT, &backBufferFormatHDRQuery, sizeof(backBufferFormatHDRQuery)
+		);
 
-	ThrowIfFalse(depthStencilFormatQuery.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL);
-	ThrowIfFalse(backBufferFormatSDRQuery.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET);
-	if (SUCCEEDED(hdrQueryResult) == true)
-	{
-		m_optionHDR.SetFormatSupported((backBufferFormatHDRQuery.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) != 0);
-	}
-	else
-	{
-		m_optionHDR.SetFormatSupported(false);
-	}
-
-	m_optionMeshShader.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device2)));
-	m_optionRayTracing.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device5)));
-
-	if (m_optionMeshShader.deviceSupported == true)
-	{
-		D3D12_FEATURE_DATA_D3D12_OPTIONS7 meshShaderFeatureQuery = {};
-		m_device2->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &meshShaderFeatureQuery, sizeof(meshShaderFeatureQuery));
-		m_optionMeshShader.SetFeatureSupported(meshShaderFeatureQuery.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED);
-	}
-	else
-	{
-		m_optionMeshShader.SetFeatureSupported(false);
+		ThrowIfFalse(depthStencilFormatQuery.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL);
+		ThrowIfFalse(backBufferFormatSDRQuery.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET);
+		if (SUCCEEDED(hdrQueryResult) == true)
+		{
+			m_optionHDR.SetFormatSupported((backBufferFormatHDRQuery.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) != 0);
+		}
+		else
+		{
+			m_optionHDR.SetFormatSupported(false);
+		}
 	}
 
-	if (m_optionRayTracing.deviceSupported == true)
 	{
-		D3D12_FEATURE_DATA_D3D12_OPTIONS5 rayTracingFeatureQuery = {};
-		m_device5->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &rayTracingFeatureQuery, sizeof(rayTracingFeatureQuery));
-		m_optionRayTracing.SetFeatureSupported(rayTracingFeatureQuery.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
-	}
-	else
-	{
-		m_optionRayTracing.SetFeatureSupported(false);
+		m_optionMeshShader.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device2)));
+		m_optionRayTracing.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device5)));
+
+		if (m_optionMeshShader.deviceSupported == true)
+		{
+			D3D12_FEATURE_DATA_D3D12_OPTIONS7 meshShaderFeatureQuery = {};
+			m_device2->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &meshShaderFeatureQuery, sizeof(meshShaderFeatureQuery));
+			m_optionMeshShader.SetFeatureSupported(meshShaderFeatureQuery.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED);
+		}
+		else
+		{
+			m_optionMeshShader.SetFeatureSupported(false);
+		}
+
+		if (m_optionRayTracing.deviceSupported == true)
+		{
+			D3D12_FEATURE_DATA_D3D12_OPTIONS5 rayTracingFeatureQuery = {};
+			m_device5->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &rayTracingFeatureQuery, sizeof(rayTracingFeatureQuery));
+			m_optionRayTracing.SetFeatureSupported(rayTracingFeatureQuery.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
+		}
+		else
+		{
+			m_optionRayTracing.SetFeatureSupported(false);
+		}
 	}
 }
 
@@ -702,7 +729,7 @@ void Podo::ResetDSV()
 
 void Podo::ResetAssets()
 {
-	m_assets.clear();
+	m_workloadAssets.clear();
 
 	Asset box;
 
@@ -740,16 +767,16 @@ void Podo::ResetAssets()
 
 	uploadFinished.wait();
 
-	m_assets["Box"] = std::move(box);
+	m_workloadAssets["Box"] = std::move(box);
 }
 
 void Podo::ResetObjects()
 {
-	m_objects.clear();
+	m_workloadObjects.clear();
 
 	{
 		Object boxObject;
-		boxObject.asset = &m_assets.at("Box");
+		boxObject.asset = &m_workloadAssets.at("Box");
 
 		DirectX::XMVECTOR position	= DirectX::XMVectorSet(0.0f, 0.0f, 3.0f, 1.0f);
 		DirectX::XMVECTOR direction = DirectX::XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
@@ -757,12 +784,12 @@ void Podo::ResetObjects()
 		boxObject.SetWorldSpace(position, direction, up);
 		boxObject.CreateConstantBuffer(m_device.Get());
 
-		m_objects["HorizontalBoxObject"] = std::move(boxObject);
+		m_workloadObjects["HorizontalBoxObject"] = std::move(boxObject);
 	}
 
 	{
 		Object verticalBoxObject;
-		verticalBoxObject.asset = &m_assets.at("Box");
+		verticalBoxObject.asset = &m_workloadAssets.at("Box");
 
 		DirectX::XMVECTOR position	= DirectX::XMVectorSet(2.0f, 0.0f, 5.0f, 1.0f);
 		DirectX::XMVECTOR direction	= DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
@@ -770,7 +797,7 @@ void Podo::ResetObjects()
 		verticalBoxObject.SetWorldSpace(position, direction, up);
 		verticalBoxObject.CreateConstantBuffer(m_device.Get());
 
-		m_objects["VerticalBoxObject"] = std::move(verticalBoxObject);
+		m_workloadObjects["VerticalBoxObject"] = std::move(verticalBoxObject);
 	}
 }
 
@@ -779,7 +806,7 @@ void Podo::ResetCBVSRVUAV()
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_descriptorHeapCBVSRVUAVStartHandleCPUForRender;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle = m_descriptorHeapCBVSRVUAVStartHandleGPUForRender;
 
-	for (auto& [name, object] : m_objects)
+	for (auto& [name, object] : m_workloadObjects)
 	{
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
 		cbvDesc.BufferLocation	= object.constantBuffer->GetGPUVirtualAddress();

@@ -7,6 +7,8 @@
 
 void Podo::Close()
 {
+	FlushCommandQueue();
+
 	CloseFenceEvent();
 	CloseImGui();
 }

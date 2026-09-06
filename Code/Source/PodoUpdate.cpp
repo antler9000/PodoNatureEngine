@@ -29,7 +29,13 @@ void Podo::Update()
 	PIXScopedEvent(PIX_COLOR_INDEX(1), L"CPU: 1. Frame Time");
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(2), L"CPU: 2. Non-Render Logic");
+		PIXScopedEvent(PIX_COLOR_INDEX(2), L"CPU: 2. Fence Waiting");
+
+		FlushCommandQueue();
+	}
+
+	{
+		PIXScopedEvent(PIX_COLOR_INDEX(3), L"CPU: 3. Non-Render Logic");
 
 		UpdateTimers();
 		UpdateCaption();
@@ -37,7 +43,7 @@ void Podo::Update()
 	}
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(3), L"CPU: 3. Render Logic");
+		PIXScopedEvent(PIX_COLOR_INDEX(4), L"CPU: 4. Render Logic");
 
 		UpdateRender();
 	}
@@ -53,32 +59,30 @@ void Podo::UpdateTimers()
 
 void Podo::UpdateCaption()
 {
-#ifdef _DEBUG
-	static Timer worldTimerCaption;
+#if defined(_DEBUG)
+	static Timer captionTimer;
 
-	worldTimerCaption.Update();
+	captionTimer.Start();
+	captionTimer.Update();
 
 	//NOTE: SetWindowTextW를 너무 자주 호출하면 시스템 부하로 인해 윈도우 전체가 먹통이 되니 반복에 텀을 주자
-	if (worldTimerCaption.GetTimeMilli() > 100.0f)
+	if (captionTimer.GetTimeMilli() > 100.0f)
 	{
 
 		int fps = (m_worldTimerFrame.GetTimeMilli() != 0) ? static_cast<int>(1000 / m_worldTimerFrame.GetTimeMilli()) : 0;
 
 		wstring caption = std::format
 		(
-			L"{} (월드 경과 시간: {:06.1F} s / 월드 프레임 시간: {:0.4f} ms / FPS: {:3d} fps / 마우스 위치: {:04d} p, {:04d} p / 스크롤 각도: {:04d} unit)",
+			L"{} (월드 경과 시간: {:06.1F} s / 월드 프레임 시간: {:0.4f} ms / FPS: {:3d} fps)",
 			m_pAppName,
 			m_worldTimerTotal.GetTimeMilli() / 1000,
 			m_worldTimerFrame.GetTimeMilli(),
-			(fps > 999) ? 999 : fps,
-			m_inputMousePositionClient.x,
-			m_inputMousePositionClient.y,
-			m_inputScrollDelta
+			(fps > 999) ? 999 : fps
 		);
 
 		SetWindowTextW(m_hWnd, caption.c_str());
 
-		worldTimerCaption.Mark();
+		captionTimer.Mark();
 	}
 #endif
 }
@@ -94,7 +98,7 @@ void Podo::UpdateWorld()
 	float oscillation	= XMScalarSin(timeSecond) * 1.5f;
 
 	{
-		Object& horizontalBoxObject = m_objects.at("HorizontalBoxObject");
+		Object& horizontalBoxObject = m_workloadObjects.at("HorizontalBoxObject");
 
 		XMVECTOR position	= XMVectorSet(oscillation, 0.0f, 3.0f, 1.0f);
 		XMVECTOR direction	= XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
@@ -103,7 +107,7 @@ void Podo::UpdateWorld()
 	}
 
 	{
-		Object& verticalBoxObject = m_objects.at("VerticalBoxObject");
+		Object& verticalBoxObject = m_workloadObjects.at("VerticalBoxObject");
 
 		XMVECTOR position	= XMVectorSet(2.0f, oscillation, 5.0f, 1.0f);
 		XMVECTOR direction	= XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
@@ -131,7 +135,7 @@ void Podo::UpdateWorld()
 
 	XMMATRIX viewProjectionMatrix = viewMatrix * projectionMatrix;
 
-	for (auto& [name, object] : m_objects)
+	for (auto& [name, object] : m_workloadObjects)
 	{
 		object.UpdateWorldViewProjection(viewProjectionMatrix);
 	}
@@ -145,19 +149,18 @@ void Podo::UpdateRender()
 	}
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(4), L"CPU: 4. Reset Command List");
+		PIXScopedEvent(PIX_COLOR_INDEX(5), L"CPU: 5. Reset Command List");
 
-		FlushCommandQueue();
 		ThrowIfFailed(m_commandAllocator->Reset());
 		ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 	}
 
 	{
-		PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(11), L"GPU: 1. Frame Time");
+		PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(1), L"GPU: 1. Frame Time");
 
 		{
-			PIXScopedEvent(PIX_COLOR_INDEX(5), L"CPU: 5. Bind Resources");
-			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(12), L"GPU: 2. Bind Resources");
+			PIXScopedEvent(PIX_COLOR_INDEX(6), L"CPU: 6. Bind Resources");
+			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(2), L"GPU: 2. Bind Resources");
 
 			ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeapCBVSRVUAV.Get() };
 			m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
@@ -192,14 +195,14 @@ void Podo::UpdateRender()
 		}
 
 		{
-			PIXScopedEvent(PIX_COLOR_INDEX(6), L"CPU: 6. Draw Scene");
-			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(13), L"GPU: 3. Draw Scene");
+			PIXScopedEvent(PIX_COLOR_INDEX(7), L"CPU: 7. Draw Scene");
+			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(3), L"GPU: 3. Draw Scene");
 
 			m_commandList->SetPipelineState(m_basicPipelineStateObject.Get());
 			m_commandList->SetGraphicsRootSignature(m_basicRootSignature.Get());
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			for (auto& [name, object] : m_objects)
+			for (auto& [name, object] : m_workloadObjects)
 			{
 				const Asset* asset = object.asset;
 
@@ -224,15 +227,15 @@ void Podo::UpdateRender()
 		}
 
 		{
-			PIXScopedEvent(PIX_COLOR_INDEX(7), L"CPU: 7. Draw GUI");
-			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(14), L"GPU: 4. Draw GUI");
+			PIXScopedEvent(PIX_COLOR_INDEX(8), L"CPU: 8. Draw GUI");
+			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(4), L"GPU: 4. Draw GUI");
 
 			UpdateGUI();
 		}
 
 		{
-			PIXScopedEvent(PIX_COLOR_INDEX(8), L"CPU: 8. Unbind Resources");
-			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(15), L"GPU: 5. Unbind Resources");
+			PIXScopedEvent(PIX_COLOR_INDEX(9), L"CPU: 9. Unbind Resources");
+			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(5), L"GPU: 5. Unbind Resources");
 
 			CD3DX12_RESOURCE_BARRIER barrierRenderTargetToPresent = CD3DX12_RESOURCE_BARRIER::Transition
 			(
@@ -245,7 +248,7 @@ void Podo::UpdateRender()
 	}
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(9), L"CPU: 9. Submit Command List");
+		PIXScopedEvent(PIX_COLOR_INDEX(10), L"CPU: 10. Submit Command List");
 
 		ThrowIfFailed(m_commandList->Close());
 		ID3D12CommandList* commandLists[] = { m_commandList.Get() };
@@ -253,7 +256,7 @@ void Podo::UpdateRender()
 	}
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(10), L"CPU: 10. Present");
+		PIXScopedEvent(PIX_COLOR_INDEX(11), L"CPU: 11. Present");
 
 		if (m_optionVSync.IsActive() == true)
 		{
@@ -282,25 +285,18 @@ void Podo::UpdateGUI()
 	m_imGuiMediumButtonSize = ImVec2(240.0f, 40.0f) * m_optionGUI.GetMasterScale();
 	m_imGuiLargeButtonSize = ImVec2(360.0f, 40.0f) * m_optionGUI.GetMasterScale();
 
-	switch (m_engineStatePresent)
+	switch (m_engineState)
 	{
-		case ENGINE_STATE_LOADING:
+		case ENGINE_STATE_PREPARE:
 		{
-			UpdateGUILoading(pImGuiViewPort, imGuiCenterPos);
+			UpdatePrepareStateGUI(pImGuiViewPort, imGuiCenterPos);
 
 			break;
 		}
 
-		case ENGINE_STATE_RUNTIME:
+		case ENGINE_STATE_RUN:
 		{
-			UpdateGUIRuntime(pImGuiViewPort, imGuiCenterPos);
-
-			break;
-		}
-
-		case ENGINE_STATE_MENU:
-		{
-			UpdateGUIMenu(pImGuiViewPort, imGuiCenterPos);
+			UpdateRunStateGUI(pImGuiViewPort, imGuiCenterPos);
 
 			break;
 		}
@@ -310,63 +306,35 @@ void Podo::UpdateGUI()
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
 }
 
-void Podo::UpdateGUILoading(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
-{
-	ImGuiWindowFlags loadingGuiFlag = m_imGuiBasicFlag | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
-
-	ImVec2 pos = ImVec2(
-		imGuiCenterPos.x,
-		pImGuiViewPort->Pos.y + pImGuiViewPort->Size.y * 0.9f
-	);
-
-	ImGui::SetNextWindowPos(pos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
-
-	ImGui::Begin("Loading", nullptr, loadingGuiFlag);
-
-	bool startButtonClicked = ImGui::Button("Click here to start", m_imGuiLargeButtonSize);
-	if (startButtonClicked == true)
-	{
-		m_engineStatePresent = ENGINE_STATE_RUNTIME;
-		InputReset();
-		WorldTimersReset();
-		WorldTimersStart();
-	}
-
-	ImGui::End();
-}
-
-void Podo::UpdateGUIRuntime(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
-{
-	ImGuiWindowFlags loadingGuiFlag = m_imGuiBasicFlag | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
-
-	ImGui::SetNextWindowPos(ImVec2(0.0f,0.0f), ImGuiCond_Always);
-	ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
-
-	ImGui::Begin("Loading", nullptr, loadingGuiFlag);
-
-	bool menuButtonClicked = ImGui::Button("Menu", m_imGuiSmallButtonSize);
-	bool escKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
-	if (menuButtonClicked == true || escKeyPressed == true)
-	{
-		m_engineStatePresent = ENGINE_STATE_MENU;
-	}
-
-	ImGui::End();
-}
-
-void Podo::UpdateGUIMenu(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
+void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
 {
 	ImGui::SetNextWindowPos(imGuiCenterPos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(700.0f, 550.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
 
-	ImGui::Begin("Menu", nullptr, m_imGuiBasicFlag);
+	ImGui::Begin("Prepare", nullptr, m_imGuiBasicFlag);
 
-	bool backButtonClicked = ImGui::Button("Back", m_imGuiSmallButtonSize);
+	bool backButtonClicked = ImGui::Button("Start", m_imGuiSmallButtonSize);
 	bool escKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
 	if (backButtonClicked == true || escKeyPressed == true)
 	{
-		m_engineStatePresent = ENGINE_STATE_RUNTIME;
+		m_engineState = ENGINE_STATE_RUN;
+		WorldTimersReset();
+		WorldTimersStart();
+
+//NOTE:	USE_PIX 전처리 상수가 정의되어있지 않은 구성에선 PIXLoadLatestWinPixTimingCapturerLibrary()에서 nullptr이 반환되어 실패 해석이 복잡해짐
+//		또한 관리자 권한으로 실행하지 않으면 PIXBeginCapture(..)에서 실패가 반환되며 마찬가지로 실패 해석이 복잡해짐
+//		따라서 Profile 구성에서만 해당 함수들이 호출되도록 전처리 조건문을 작성하였음
+#if !defined(_DEBUG) && defined(USE_PIX)
+		ThrowIfNull(PIXLoadLatestWinPixTimingCapturerLibrary());
+
+		PIXCaptureParameters captureParameters = {};
+		captureParameters.TimingCaptureParameters.FileName				= L"PodoNatureEngineProfile.wpix";
+		captureParameters.TimingCaptureParameters.CaptureCpuSamples		= true;
+		captureParameters.TimingCaptureParameters.CpuSamplesPerSecond	= 4000;
+		captureParameters.TimingCaptureParameters.CaptureGpuTiming		= true;
+
+		ThrowIfFailed(PIXBeginCapture(PIX_CAPTURE_TIMING, &captureParameters));
+#endif
 	}
 
 	ImGui::SameLine();
@@ -384,38 +352,44 @@ void Podo::UpdateGUIMenu(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
 
 	ImGui::Dummy(m_imGuiSpacingSize);
 
-	ImGui::Text("Display");
-	ImGui::BeginDisabled(m_optionFullScreen.IsSupported() == false);
-	ImGui::Checkbox("Full Screen", &m_optionFullScreen.userEnabled);
-	ImGui::EndDisabled();
-	ImGui::BeginDisabled(m_optionVSync.IsSupported() == false);
-	ImGui::Checkbox("VSync", &m_optionVSync.userEnabled);
-	ImGui::EndDisabled();
-	ImGui::SameLine();
-	ImGui::BeginDisabled(m_optionHDR.IsSupported() == false);
-	ImGui::Checkbox("HDR(Partially Implemented)", &m_optionHDR.userEnabled);
-	ImGui::EndDisabled();
-
-	ImGui::Dummy(m_imGuiSpacingSize);
-	ImGui::Separator();
-
-	ImGui::Text("Graphics");
-	ImGui::BeginDisabled(m_optionRayTracing.IsSupported() == false);
-	ImGui::Checkbox("Ray Tracing(Not Implemented)", &m_optionRayTracing.userEnabled);
-	ImGui::EndDisabled();
-	ImGui::BeginDisabled(m_optionMeshShader.IsSupported() == false);
-	ImGui::Checkbox("Mesh Shader(Not Implemented)", &m_optionMeshShader.userEnabled);
-	ImGui::EndDisabled();
-
-	ImGui::Dummy(m_imGuiSpacingSize);
-	ImGui::Separator();
-
-	ImGui::Text("GUI");
-	const char* masterSizeStringArray[] = { "50%", "75%", "100%", "125%", "150%" };
-	int selectedIndex = (m_optionGUI.masterSize - 50) / 25;
-	if (ImGui::Combo("Master Size", &selectedIndex, masterSizeStringArray, _countof(masterSizeStringArray)) == true)
 	{
-		m_optionGUI.SetMasterSize(50 + 25 * selectedIndex);
+		ImGui::Text("Display");
+		ImGui::BeginDisabled(m_optionFullScreen.IsSupported() == false);
+		ImGui::Checkbox("Full Screen", &m_optionFullScreen.userEnabled);
+		ImGui::EndDisabled();
+		ImGui::BeginDisabled(m_optionVSync.IsSupported() == false);
+		ImGui::Checkbox("VSync", &m_optionVSync.userEnabled);
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		ImGui::BeginDisabled(m_optionHDR.IsSupported() == false);
+		ImGui::Checkbox("HDR(Partially Implemented)", &m_optionHDR.userEnabled);
+		ImGui::EndDisabled();
+	}
+
+	ImGui::Dummy(m_imGuiSpacingSize);
+	ImGui::Separator();
+
+	{
+		ImGui::Text("Graphics");
+		ImGui::BeginDisabled(m_optionRayTracing.IsSupported() == false);
+		ImGui::Checkbox("Ray Tracing(Not Implemented)", &m_optionRayTracing.userEnabled);
+		ImGui::EndDisabled();
+		ImGui::BeginDisabled(m_optionMeshShader.IsSupported() == false);
+		ImGui::Checkbox("Mesh Shader(Not Implemented)", &m_optionMeshShader.userEnabled);
+		ImGui::EndDisabled();
+	}
+
+	ImGui::Dummy(m_imGuiSpacingSize);
+	ImGui::Separator();
+
+	{
+		ImGui::Text("GUI");
+		const char* masterSizeStringArray[] = { "50%", "75%", "100%", "125%", "150%" };
+		int selectedIndex = (m_optionGUI.masterSize - 50) / 25;
+		if (ImGui::Combo("Master Size", &selectedIndex, masterSizeStringArray, _countof(masterSizeStringArray)) == true)
+		{
+			m_optionGUI.SetMasterSize(50 + 25 * selectedIndex);
+		}
 	}
 
 	bool nowFullScreenState = m_optionFullScreen.IsActive();
@@ -428,11 +402,43 @@ void Podo::UpdateGUIMenu(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
 	}
 	if (previousHDRState != nowHDRState)
 	{
-		m_needResetInterfaces = true;
+		m_needResetSwapChain = true;
 	}
 	if (previousGUIState != nowGUIState)
 	{
-		m_needResetInterfaces = true;
+		m_needResetPSO = true;
+	}
+
+	ImGui::End();
+}
+
+void Podo::UpdateRunStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
+{
+	ImGuiWindowFlags loadingGuiFlag = m_imGuiBasicFlag | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
+
+	ImGui::SetNextWindowPos(ImVec2(0.0f,0.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
+
+	ImGui::Begin("Runtime", nullptr, loadingGuiFlag);
+
+	bool menuButtonClicked = ImGui::Button("End", m_imGuiSmallButtonSize);
+	bool escKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+	if (menuButtonClicked == true || escKeyPressed == true)
+	{
+		m_engineState = ENGINE_STATE_PREPARE;
+		WorldTimersReset();
+		WorldTimersStop();
+
+#if !defined(_DEBUG) && defined(USE_PIX)
+		ThrowIfFailed(PIXEndCapture(false));
+#endif
+
+		m_needResetScreenMode	= true;
+		m_needResetFactory		= true;
+		m_needResetDevice		= true;
+		m_needResetSwapChain	= true;
+		m_needResetAsset		= true;
+		m_needResetPSO			= true;
 	}
 
 	ImGui::End();

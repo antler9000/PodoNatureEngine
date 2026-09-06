@@ -2,10 +2,6 @@
 #include "Podo.h"
 #include "imgui.h"
 #include <windows.h>
-#include <windowsx.h>
-#include <format>
-#include <string>
-#include <cstdlib>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -21,90 +17,6 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	switch (uMsg)
 	{
-		case WM_MOUSEMOVE:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseMove(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_LBUTTONDOWN:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseLeftButtonDown(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_LBUTTONUP:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseLeftButtonUp(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_RBUTTONDOWN:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseRightButtonDown(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_RBUTTONUP:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseRightButtonUp(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_MOUSEWHEEL:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (io.WantCaptureMouse == false)
-			{
-				InputMouseWheelScroll(wParam, lParam);
-			}
-
-			return 0;
-		}
-
-		case WM_KEYDOWN:
-		{
-			ImGuiIO& io = ImGui::GetIO();
-
-			if (!io.WantCaptureKeyboard)
-			{
-				InputKeyboardDown(wParam, lParam);
-			}
-
-			return 0;
-		}
-
 		case WM_SYSKEYDOWN:
 		{
 			//NOTE: ALT+ENTER을 누르는 경우
@@ -145,7 +57,7 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 			m_isWindowResizing = false;
 			m_isWindowMoving = false;
 
-			m_needResetInterfaces = true;
+			m_needResetFactory = true;
 
 			SaveWindow();
 
@@ -175,7 +87,7 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 				return 0;
 			}
 
-			m_needResetInterfaces = true;
+			m_needResetFactory = true;
 
 			SaveWindow();
 
@@ -191,7 +103,7 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 				return 0;
 			}
 
-			m_needResetInterfaces = true;
+			m_needResetFactory = true;
 
 			SaveWindow();
 
@@ -201,7 +113,7 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 		//NOTE: NVIDIA 제어판의 해상도-주사율-GSYNC 설정이 바뀌는 경우, 윈도우 디스플레이 설정의 HDR 설정이 켜지거나 꺼지는 경우
 		case WM_DISPLAYCHANGE:
 		{
-			m_needResetInterfaces = true;
+			m_needResetFactory = true;
 
 			return 0;
 		}
@@ -225,87 +137,4 @@ LRESULT Podo::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 
 	return DefWindowProc(m_hWnd, uMsg, wParam, lParam);
-}
-
-void Podo::InputMouseMove(WPARAM wParam, LPARAM lParam)
-{
-	m_inputMousePositionClient.x = GET_X_LPARAM(lParam);
-	m_inputMousePositionClient.y = GET_Y_LPARAM(lParam);
-}
-
-void Podo::InputMouseLeftButtonDown(WPARAM wParam, LPARAM lParam)
-{
-	if (m_inputIsClicked == true)
-	{
-		return;
-	}
-
-	m_inputMouseClickedPositionClient.x = GET_X_LPARAM(lParam);
-	m_inputMouseClickedPositionClient.y = GET_Y_LPARAM(lParam);
-	m_inputIsClicked = true;
-}
-
-void Podo::InputMouseLeftButtonUp(WPARAM wParam, LPARAM lParam)
-{
-	std::wstring message = std::format
-	(
-		L"{}{} 시작 (x, y) = ({}, {}) \n 끝 (x, y) = ({}, {})",
-		wParam & MK_CONTROL ? L"[CTRL]" : L"",
-		wParam & MK_SHIFT ? L"[SHIFT]" : L"",
-		m_inputMouseClickedPositionClient.x,
-		m_inputMouseClickedPositionClient.y,
-		GET_X_LPARAM(lParam),
-		GET_Y_LPARAM(lParam)
-	);
-
-	unsigned int mouseMovedManhattanDist = abs(GET_X_LPARAM(lParam) - m_inputMouseClickedPositionClient.x) + abs(GET_Y_LPARAM(lParam) - m_inputMouseClickedPositionClient.y);
-	bool isDrag = (mouseMovedManhattanDist > m_inputDragThresholdDist);
-	MessageBoxW(m_hWnd, message.c_str(), isDrag ? L"좌측 마우스 드래그" : L"좌측 마우스 클릭", MB_OK);
-
-	m_inputIsClicked = false;
-}
-
-void Podo::InputMouseRightButtonDown(WPARAM wParam, LPARAM lParam)
-{
-	if (m_inputIsClicked == true)
-	{
-		return;
-	}
-
-	m_inputMouseClickedPositionClient.x = GET_X_LPARAM(lParam);
-	m_inputMouseClickedPositionClient.y = GET_Y_LPARAM(lParam);
-	m_inputIsClicked = true;
-}
-
-void Podo::InputMouseRightButtonUp(WPARAM wParam, LPARAM lParam)
-{
-	std::wstring message = std::format
-	(
-		L"{}{} 시작 (x, y) = ({}, {}) \n 끝 (x, y) = ({}, {})",
-		wParam & MK_CONTROL ? L"[CTRL]" : L"",
-		wParam & MK_SHIFT ? L"[SHIFT]" : L"",
-		m_inputMouseClickedPositionClient.x,
-		m_inputMouseClickedPositionClient.y,
-		GET_X_LPARAM(lParam),
-		GET_Y_LPARAM(lParam)
-	);
-
-	unsigned int mouseMovedManhattanDist = abs(GET_X_LPARAM(lParam) - m_inputMouseClickedPositionClient.x) + abs(GET_Y_LPARAM(lParam) - m_inputMouseClickedPositionClient.y);
-	bool isDrag = (mouseMovedManhattanDist > m_inputDragThresholdDist);
-	MessageBoxW(m_hWnd, message.c_str(), isDrag ? L"우측 마우스 드래그" : L"우측 마우스 클릭", MB_OK);
-
-	m_inputIsClicked = false;
-}
-
-void Podo::InputMouseWheelScroll(WPARAM wParam, LPARAM lParam)
-{
-	m_inputScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
-}
-
-void Podo::InputKeyboardDown(WPARAM wParam, LPARAM lParam)
-{
-	//if (wParam == VK_ESCAPE)
-	//{
-	//	
-	//}
 }

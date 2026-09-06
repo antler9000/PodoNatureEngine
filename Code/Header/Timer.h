@@ -8,8 +8,8 @@ public:
 
 	Timer() 
 	{
+		Stop();
 		Reset();
-		Start();
 	}
 
 	~Timer() = default;

@@ -29,16 +29,12 @@ public:
 	{
 		OptionRestore();
 
-		WorldTimersStop();
-		
 		Reset();
 	}
 
 	~Podo()
 	{
 		OptionSave();
-
-		FlushCommandQueue();
 		
 		Close();
 	}
@@ -57,10 +53,6 @@ public:
 			else if (NeedReset() == true)
 			{
 				Reset();
-			}
-			else if (NeedResetInterfaces() == true)
-			{
-				ResetInterfaces();
 			}
 			else
 			{
@@ -87,7 +79,6 @@ private:
 	void ResetScreenMode();
 	void ResetFullScreenMode();
 	void ResetWindowMode();
-	void ResetInterfaces();
 	void ResetFactory();
 	void ResetAdapterAndOutput();
 	bool ResetOutput(IDXGIAdapter3* pAdapter);
@@ -125,17 +116,8 @@ private:
 	void UpdateWorld();
 	void UpdateRender();
 	void UpdateGUI();
-	void UpdateGUILoading(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos);
-	void UpdateGUIRuntime(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos);
-	void UpdateGUIMenu(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos);
-
-	void InputMouseMove(WPARAM wParam, LPARAM lParam);
-	void InputMouseLeftButtonDown(WPARAM wParam, LPARAM lParam);
-	void InputMouseLeftButtonUp(WPARAM wParam, LPARAM lParam);
-	void InputMouseRightButtonDown(WPARAM wParam, LPARAM lParam);
-	void InputMouseRightButtonUp(WPARAM wParam, LPARAM lParam);
-	void InputMouseWheelScroll(WPARAM wParam, LPARAM lParam);
-	void InputKeyboardDown(WPARAM wParam, LPARAM lParam);
+	void UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos);
+	void UpdateRunStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos);
 
 private:
 
@@ -208,8 +190,8 @@ private:
 	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapRTVStartHandleCPU;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapDSVStartHandleCPU;
 
-	std::unordered_map<std::string, Asset>	m_assets;
-	std::unordered_map<std::string, Object>	m_objects;
+	std::unordered_map<std::string, Asset>	m_workloadAssets;
+	std::unordered_map<std::string, Object>	m_workloadObjects;
 
 	UINT									m_descriptorHeapCBVSRVUAVIncrementSize				= 0;
 	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapCBVSRVUAV;
@@ -227,14 +209,23 @@ private:
 	ImVec2									m_imGuiMediumButtonSize								= ImVec2(240.0f, 40.0f);
 	ImVec2									m_imGuiLargeButtonSize								= ImVec2(360.0f, 40.0f);
 
-	bool									NeedReset() const									{ return m_needResetScreenMode; }
-	bool									m_needResetScreenMode								= false;
-	bool									NeedResetInterfaces() const							{ return (m_dxgiFactory->IsCurrent() == FALSE) || m_needResetInterfaces; }
-	bool									m_needResetInterfaces								= false;
+	bool									NeedReset() const									{ return (NeedResetScreenMode() || NeedResetFactory() || NeedResetDevice() || NeedResetSwapChain() || NeedResetAsset() || NeedResetPSO()); }
+	bool									NeedResetScreenMode() const							{ return m_needResetScreenMode; }
+	bool									m_needResetScreenMode								= true;
+	bool									NeedResetFactory() const							{ return (m_needResetFactory || (m_dxgiFactory->IsCurrent() == FALSE)); }
+	bool									m_needResetFactory									= true;
+	bool									NeedResetDevice() const								{ return m_needResetDevice; }
+	bool									m_needResetDevice									= true;
+	bool									NeedResetSwapChain() const							{ return m_needResetSwapChain; }
+	bool									m_needResetSwapChain								= true;
+	bool									NeedResetAsset() const								{ return m_needResetAsset; }
+	bool									m_needResetAsset									= true;
+	bool									NeedResetPSO() const								{ return m_needResetPSO; }
+	bool									m_needResetPSO										= true;
 
 	bool									IsUpdateStopped() const								{ return (IsWorldStopped() && IsRenderStopped()); }
-	bool									IsWorldStopped() const								{ return (m_engineStatePresent == ENGINE_STATE_LOADING); }
-	bool									IsRenderStopped() const								{ return m_isWindowResizing || m_isWindowMoving || m_isWindowMinimized; }
+	bool									IsWorldStopped() const								{ return (m_engineState != ENGINE_STATE_RUN); }
+	bool									IsRenderStopped() const								{ return (m_isWindowResizing || m_isWindowMoving || m_isWindowMinimized); }
 	bool									m_isWindowResizing									= false;
 	bool									m_isWindowMoving									= false;
 	bool									m_isWindowMinimized									= false;
@@ -245,13 +236,7 @@ private:
 	Timer									m_worldTimerTotal;
 	Timer									m_worldTimerFrame;
 
-	EngineState								m_engineStatePresent								= ENGINE_STATE_LOADING;
-
-	void									InputReset()										{ m_inputMousePositionClient = { 0,0 }; m_inputMouseClickedPositionClient = { 0, 0 }; m_inputIsClicked = false; m_inputScrollDelta = 0; }
-	POINT									m_inputMousePositionClient							= { 0, 0 };
-	POINT									m_inputMouseClickedPositionClient					= { 0, 0 };
-	bool									m_inputIsClicked									= false;
-	int										m_inputScrollDelta									= 0;
+	EngineState								m_engineState										= ENGINE_STATE_PREPARE;
 
 private:
 

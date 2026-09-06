@@ -15,7 +15,7 @@ protected:
 	}
 
 	//NOTE:	예외에 의해 소멸된 후 소멸된 객체의 HandleMessage(..) 메서드가 창 프로시저에 의해 호출되지 않도록 창을 삭제함
-	//		DestoryWindow(..)가 WM_DESTROY를 거쳐 나온 WM_QUIT 메시지가 이후 예외 메시지 박스를 종료시키지 않도록 소진시킴
+	//		그 후 DestoryWindow(..)가 WM_DESTROY를 거쳐 나온 WM_QUIT 메시지가 이후 예외 메시지 박스를 종료시키지 않도록 소진시킴
 	~BaseApp()
 	{
 		if (m_hWnd == nullptr)
@@ -32,7 +32,7 @@ protected:
 		}
 	}
 
-	//NOTE: 앱의 기본 생성자, 복사, 이동을 허용하지 않도록 함
+	//NOTE: 앱의 기본 생성자, 복사, 이동을 금지함
 	BaseApp() = delete;
 	BaseApp(const BaseApp& sourceApp) = delete;
 	BaseApp(BaseApp&& sourceApp) noexcept = delete;
@@ -80,9 +80,9 @@ private:
 
 	void InitWindow(int show)
 	{
-		ThrowIfFalse(m_bNotCreated);
+		ThrowIfFalse(m_haveNotCreated);
 
-		m_bNotCreated = false;
+		m_haveNotCreated = false;
 
 		const wchar_t* windowClassName = L"Window Class";
 
@@ -118,5 +118,5 @@ private:
 
 private:
 
-	inline static bool	m_bNotCreated = true;
+	inline static bool	m_haveNotCreated = true;
 };

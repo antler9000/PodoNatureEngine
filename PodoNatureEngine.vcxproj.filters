@@ -72,6 +72,15 @@
     <ClInclude Include="Code\Header\State.h">
       <Filter>Code\Header</Filter>
     </ClInclude>
+    <ClInclude Include="Code\Header\Asset.h">
+      <Filter>Code\Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\Header\Object.h">
+      <Filter>Code\Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\Header\Root.h">
+      <Filter>Code\Header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="External\imgui\imgui.cpp">
