@@ -81,6 +81,9 @@
     <ClInclude Include="Code\Header\Root.h">
       <Filter>Code\Header</Filter>
     </ClInclude>
+    <ClInclude Include="Code\Header\Camera.h">
+      <Filter>Code\Header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="External\imgui\imgui.cpp">

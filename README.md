@@ -3,7 +3,7 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 
 오픈 월드 자연환경 워크로드의 특성을 분석하고 최적화하는 것을 목표로 합니다.
 
-현재 기초적인 렌더링 기능을 구현하고 있습니다.
+현재 기초적인 조명 렌더링 기능을 구현하고 있습니다.
 
 <br>
 
@@ -166,13 +166,13 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 
 3. 준비 화면에서 측정 옵션을 설정합니다. 화면 모드는 전체 화면으로 설정하고, 먼저 VSync는 비활성화합니다.
   
-4. `Start` 버튼을 누르면 PIX의 **Sequential Timing Capture**가 자동으로 시작됩니다.
+4. `Start` 버튼을 누르면 PIX의 Sequential Timing Capture가 자동으로 시작됩니다.
 
 5. 측정하고 싶은 구간이 끝나면 `End` 버튼을 눌러 캡처를 종료합니다.
 
 6. 생성된 측정 결과 파일인 `OutDir/PodoNatureEngineProfile.wpix`을 더블 클릭하여 PIX에서 엽니다.
 
-7. `Metrics` 값을 통해 각 이벤트의 소요 시간을 분석합니다.  
+7. `Metrics` 탭을 통해 각 이벤트의 소요 시간을 분석합니다.  
   (만일 분석 이벤트가 표시되지 않을 경우, 우측의 `PIX CPU Events`와 `PIX GPU Events`의 항목을 활성화합니다.)
 
 8. 다시 3번 단계로 돌아가 VSync를 활성화한 뒤, 동일한 절차로 측정 및 분석을 수행합니다.
@@ -186,54 +186,56 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 [VSync Off]
 |구분 |측정 구간                                                                  |평균 소요 시간 |
 |-----|---------------------------------------------------------------------------|--------------:|
-|CPU  |1. 프레임 시간                                                             |401,066 ns     |
-|     |├─ 2. 펜스 대기                                                            |84,326 ns      |
-|     |├─ 3. 논-렌더 로직                                                         |4,524 ns       |
-|     |└─ 4. 렌더 로직                                                            |311,956 ns     |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 5. 커맨드 리스트 초기화 |10,672 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 6. 자원 바인딩          |10,106 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 7. 씬 그리기            |3,636 ns       |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 8. GUI 그리기           |11,783 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 9. 자원 언바인딩        |1,726 ns       |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 10. 커맨드 리스트 제출  |69,841 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 11. 제시                |203,426 ns     |
-|GPU  |1. 프레임 시간                                                             |30,788 ns      |
-|     |├─ 2. 자원 바인딩                                                          |26,158 ns      |
-|     |├─ 3. 씬 그리기                                                            |4,463 ns       |
-|     |├─ 4. GUI 그리기                                                           |113 ns         |
-|     |└─ 5. 자원 언바인딩                                                        |10 ns          |
+|CPU  |1. 프레임 시간                                                             |352,561 ns     |
+|     |├─ 2. GPU 명령 완료 대기                                                   |64,259 ns      |
+|     |├─ 3. 논-렌더 로직                                                         |4,341 ns       |
+|     |└─ 4. 렌더 로직                                                            |283,708 ns     |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 5. 커맨드 리스트 초기화 |8,724 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 6. 자원 바인딩          |8,784 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 7. 씬 그리기            |3,363 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 8. GUI 그리기           |10,423 ns      |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 9. 자원 언바인딩        |1,477 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 10. 커맨드 리스트 제출  |64,689 ns      |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 11. 제시                |185,554 ns     |
+|GPU  |1. 프레임 시간                                                             |23,063 ns      |
+|     |├─ 2. 자원 바인딩                                                          |21,872 ns      |
+|     |├─ 3. 씬 그리기                                                            |1,039 ns       |
+|     |├─ 4. GUI 그리기                                                           |96 ns          |
+|     |└─ 5. 자원 언바인딩                                                        |9 ns           |
 
-- 총 캡처 시간: 7,636.83 ms
+- 총 캡처 시간: 11,140.10 ms
 
-- GPU 명령이 모두 소진될 때까지 CPU를 대기시키는 현 로직으로 인해, '2. 펜스 대기' 과정에서 CPU 프레임 시간의 약 20%가 대기 상태로 낭비되고 있습니다.
+- GPU 명령이 모두 소진될 때까지 CPU를 대기시키는 현 로직으로 인해, '2. GPU 명령 완료 대기' 과정에서 CPU 프레임 시간의 약 20%가 대기 상태로 낭비되고 있습니다.
 
 - '11. 제시' 과정은 현재 CPU 프레임 시간의 약 절반을 차지하고 있지만, 렌더링 워크로드가 무거워지면 고정적인 제시 과정의 비중은 감소할 것으로 예상합니다.
+
+- 측정 결과 파일에 담긴 그래프 분포를 살펴본 결과, 특이하게 GPU의 '2. 자원 바인딩' 과정이 측정 시작 후 2.5초 시점에 소요 시간이 절반 이하로(약 60,000 ns -> 20,000 ns) 줄어들며 히스토그램 분포가 양분됨을 발견하였습니다. 이는 아래 VSync를 킨 경우에도 비슷한 양상 나타났지만, 원인은 파악하지 못하였습니다. 
 
 <br>
 
 [VSync On]  
 |구분 |측정 구간                                                                  |평균 소요 시간 |
 |-----|---------------------------------------------------------------------------|--------------:|
-|CPU  |1. 프레임 시간                                                             |4,149,600 ns   |
-|     |├─ 2. 펜스 대기                                                            |3,666,227 ns   |
-|     |├─ 3. 논-렌더 로직                                                         |12,669 ns      |
-|     |└─ 4. 렌더 로직                                                            |470,137 ns     |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 5. 커맨드 리스트 초기화 |34,744 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 6. 자원 바인딩          |23,688 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 7. 씬 그리기            |8,621 ns       |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 8. GUI 그리기           |28,049 ns      |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 9. 자원 언바인딩        |2,108 ns       |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 10. 커맨드 리스트 제출  |111,700 ns     |
-|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 11. 제시                |261,167 ns     |
-|GPU  |1. 프레임 시간                                                             |110,460 ns     |
-|     |├─ 2. 자원 바인딩                                                          |90,053 ns      |
-|     |├─ 3. 씬 그리기                                                            |20,026 ns      |
-|     |├─ 4. GUI 그리기                                                           |310 ns         |
-|     |└─ 5. 자원 언바인딩                                                        |9 ns           |
+|CPU  |1. 프레임 시간                                                             |4,156,566 ns   |
+|     |├─ 2. GPU 명령 완료 대기                                                   |3,664,646 ns   |
+|     |├─ 3. 논-렌더 로직                                                         |8,592 ns       |
+|     |└─ 4. 렌더 로직                                                            |482,635 ns     |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 5. 커맨드 리스트 초기화 |21,004 ns      |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 6. 자원 바인딩          |20,221 ns      |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 7. 씬 그리기            |7,155 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 8. GUI 그리기           |24,406 ns      |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 9. 자원 언바인딩        |3,295 ns       |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ 10. 커맨드 리스트 제출  |114,985 ns     |
+|     |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ 11. 제시                |290,559 ns     |
+|GPU  |1. 프레임 시간                                                             |63,925 ns      |
+|     |├─ 2. 자원 바인딩                                                          |60,306 ns      |
+|     |├─ 3. 씬 그리기                                                            |3,126 ns       |
+|     |├─ 4. GUI 그리기                                                           |427 ns         |
+|     |└─ 5. 자원 언바인딩                                                        |8 ns           |
 
-- 총 캡처 시간: 7,913.38 ms
+- 총 캡처 시간: 11,452.36 ms
 
-- VSync를 켰으므로 명령 큐에 제출된 Present 명령은 VSyncBlank 타이밍에 처리되고, 이 시점까지 `FlushCommandQueue(..)`가 CPU의 다음 프레임 렌더 시작을 블록하므로, CPU의 '2. 펜스 대기' 시간이 늘어납니다.
+- VSync를 켰으므로 명령 큐에 제출된 Present 명령은 VSyncBlank 타이밍에 처리되고, 이 시점까지 `FlushCommandQueue()`가 CPU의 다음 프레임 렌더 시작을 블록하므로, CPU의 '2. GPU 명령 완료 대기' 시간이 늘어납니다.
 
 - 측정 환경의 모니터 주사율은 240Hz이므로 주기는 $\frac{1}{240\ \mathrm{Hz}} \approx 4.17\ \mathrm{ms}$이고 이는 CPU의 "프레임 시간" 측정값과 거의 맞아떨어집니다.
 
@@ -252,12 +254,12 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 <br>
 
 - **단일 PSO 기능**
-  - 에셋 로드, 텍스처 로드
-  - 텍스처 자원
-  - SRV
-  - 업로드 힙 자원 관리(`DirectX::GraphicsMemory`)
-  - 조명, 텍스처 매핑, 노말 매핑, 거리별 안개 셰이더
-  - SDR 감마 인코딩-디코딩(SRGB RTV 사용)
+  - 로딩            : 에셋 로드, 텍스처 로드
+  - 업로딩          : 업로드 힙 자원 관리 로직 대체(`DirectX::GraphicsMemory`), 조명 버퍼(업로드 힙), 재질 버퍼(업로드 힙), 텍스처(디폴트 힙)
+  - 서술자          : SRGB RTV(SDR 감마 인코딩-디코딩), CBV(조명 버퍼), CBV(재질 버퍼), SRV(텍스처)
+  - 자료구조        : 오브젝트 클래스와 카메라 클래스의 메서드에서 두 벡터 인자의 평행 경우 처리, 라이트 클래스, 머티리얼 클래스
+  - 루트 서명       : 조명 버퍼 매개변수 추가, 재질 버퍼 매개변수 추가, 텍스처 매개변수 추가
+  - 셰이더          : 조명, 텍스처 매핑, 노말 매핑, 거리별 안개 셰이더
 
 <br>
 
@@ -271,7 +273,7 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 <br>
 
 - **단일 PSO 최적화**
-  - CPU-GPU 간 병렬화       : 순환 명령 할당자
+  - CPU-GPU 간 병렬화       : 명령 할당자 개수, 백버퍼 개수 결정
   - 대상 경량화             : 사전 생성 LOD, 인덱스 타입 크기 구분
   - 대상 일련화             : 하나의 연속된 파일-자료구조-자원으로 병합, 캐싱 비용이 큰 대상 종류를 기준으로 정렬 
   - 로딩 대상 선별          : 로딩 정책
@@ -318,7 +320,7 @@ HLSL, D3D12, Win32, C++을 이용하여 구현 중인 실시간 3D 벤치마크 
 <br>
 
 - **제시 개선**
-  - 지연 한도 설정(`SetMaximumFrameLatency`, `WaitableObject`)
+  - 지연 한도 설정(`SetMaximumFrameLatency`, `WaitableObject`, 백버퍼 개수)
   - HDR 제시(톤 매핑, 색역 매핑, PQ 전달 함수)
   - 백 버퍼, GUI 해상도와 독립적인 렌더 해상도 조절 기능
 

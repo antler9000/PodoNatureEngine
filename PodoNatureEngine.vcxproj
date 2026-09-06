@@ -30,6 +30,7 @@
   <ItemGroup>
     <ClInclude Include="Code\Header\Asset.h" />
     <ClInclude Include="Code\Header\BaseApp.h" />
+    <ClInclude Include="Code\Header\Camera.h" />
     <ClInclude Include="Code\Header\Object.h" />
     <ClInclude Include="Code\Header\Root.h" />
     <ClInclude Include="Code\Header\State.h" />

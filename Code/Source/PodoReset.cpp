@@ -29,9 +29,11 @@
 #include <windows.h>
 #include <algorithm>
 #include <string>
+#include <vector>
 #include <utility>
 #include <cstdlib>
 #include <climits>
+#include <cstdint>
 #include <stdexcept>
 
 using Microsoft::WRL::ComPtr;
@@ -47,6 +49,8 @@ void Podo::Reset()
 
 		m_needResetFactory		= true;
 		m_needResetSwapChain	= true;
+
+		m_needResetScreenMode = false;
 	}
 
 	if (NeedResetFactory() == true)
@@ -56,6 +60,8 @@ void Podo::Reset()
 
 		m_needResetDevice		= true;
 		m_needResetSwapChain	= true;
+
+		m_needResetFactory = false;
 	}
 
 	if (NeedResetDevice() == true)
@@ -74,6 +80,8 @@ void Podo::Reset()
 		m_needResetSwapChain	= true;
 		m_needResetAsset		= true;
 		m_needResetPSO			= true;
+
+		m_needResetDevice = false;
 	}
 	
 	if (NeedResetSwapChain() == true)
@@ -89,14 +97,19 @@ void Podo::Reset()
 		ResetDSV();
 
 		m_needResetPSO = true;
+
+		m_needResetSwapChain = false;
 	}
 
 	if (NeedResetAsset() == true)
 	{
 		ResetAssets();
 		ResetObjects();
+		ResetCamera();
 
 		ResetCBVSRVUAV();
+
+		m_needResetAsset = false;
 	}
 
 	if (NeedResetPSO() == true)
@@ -104,14 +117,9 @@ void Podo::Reset()
 		ResetRootSignature();
 		ResetPipelineStateObject();
 		ResetImGui();
-	}
 
-	m_needResetScreenMode	= false;
-	m_needResetFactory		= false;
-	m_needResetDevice		= false;
-	m_needResetSwapChain	= false;
-	m_needResetAsset		= false;
-	m_needResetPSO			= false;
+		m_needResetPSO = false;
+	}
 
 	m_optionFullScreen.DebugPrint();
 	m_optionWindowSave.DebugPrint();
@@ -144,10 +152,10 @@ void Podo::ResetFullScreenMode()
 	monitorInfo.cbSize = sizeof(MONITORINFO);
 	GetMonitorInfo(monitor, &monitorInfo);
 
-	LONG monitorBaseX = monitorInfo.rcMonitor.left;
-	LONG monitorBaseY = monitorInfo.rcMonitor.top;
-	LONG monitorWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
-	LONG monitorHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+	LONG monitorBaseX	= monitorInfo.rcMonitor.left;
+	LONG monitorBaseY	= monitorInfo.rcMonitor.top;
+	LONG monitorWidth	= monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+	LONG monitorHeight	= monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
 
 	SetWindowPos
 	(
@@ -450,10 +458,10 @@ void Podo::ResetCommandList()
 void Podo::ResetDescriptorHeapRTV()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-	descriptorHeapDesc.NumDescriptors = m_screenBackBufferCount;
-	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	descriptorHeapDesc.NodeMask = 0;
+	descriptorHeapDesc.NumDescriptors	= m_screenBackBufferCount;
+	descriptorHeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descriptorHeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descriptorHeapDesc.NodeMask			= 0;
 
 	ThrowIfFailed
 	(
@@ -471,10 +479,10 @@ void Podo::ResetDescriptorHeapRTV()
 void Podo::ResetDescriptorHeapDSV()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-	descriptorHeapDesc.NumDescriptors = 1;
-	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	descriptorHeapDesc.NodeMask = 0;
+	descriptorHeapDesc.NumDescriptors	= 1;
+	descriptorHeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	descriptorHeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descriptorHeapDesc.NodeMask			= 0;
 
 	ThrowIfFailed
 	(
@@ -529,8 +537,8 @@ void Podo::ResetHDRSwapChainSupport()
 
 	RECT rectClient = {};
 	ThrowIfFalse(GetClientRect(m_hWnd, &rectClient));
-	LONG widthClient = rectClient.right - rectClient.left;
-	LONG heightClient = rectClient.bottom - rectClient.top;
+	LONG widthClient	= rectClient.right - rectClient.left;
+	LONG heightClient	= rectClient.bottom - rectClient.top;
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.Width					= std::max((int)widthClient, 10);
@@ -589,8 +597,8 @@ void Podo::ResetSwapChain()
 
 	RECT rectClient = {};
 	ThrowIfFalse(GetClientRect(m_hWnd, &rectClient));
-	LONG widthClient = rectClient.right - rectClient.left;
-	LONG heightClient = rectClient.bottom - rectClient.top;
+	LONG widthClient	= rectClient.right - rectClient.left;
+	LONG heightClient	= rectClient.bottom - rectClient.top;
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.Width					= std::max((int)widthClient, 10);
@@ -647,9 +655,9 @@ void Podo::ResetBackBufferInfo()
 {
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	m_screenSwapChain->GetDesc1(&swapChainDesc);
-	m_screenBackBufferWidth = swapChainDesc.Width;
-	m_screenBackBufferHeight = swapChainDesc.Height;
-	m_screenBackBufferAspectRatio = (m_screenBackBufferHeight ? (static_cast<float>(m_screenBackBufferWidth) / m_screenBackBufferHeight) : 0);
+	m_screenBackBufferWidth			= swapChainDesc.Width;
+	m_screenBackBufferHeight		= swapChainDesc.Height;
+	m_screenBackBufferAspectRatio	= (m_screenBackBufferHeight ? (static_cast<float>(m_screenBackBufferWidth) / m_screenBackBufferHeight) : 0);
 
 	m_screenBackBufferIndex = m_screenSwapChain->GetCurrentBackBufferIndex();
 
@@ -693,9 +701,9 @@ void Podo::ResetDepthStencilBuffer()
 	depthStencilBufferDesc.Flags				= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
 	D3D12_CLEAR_VALUE clearValue = {};
-	clearValue.Format = m_screenDepthStencilBufferFormat;
-	clearValue.DepthStencil.Depth = 1.0f;
-	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format				= m_screenDepthStencilBufferFormat;
+	clearValue.DepthStencil.Depth	= 1.0f;
+	clearValue.DepthStencil.Stencil	= 0;
 
 	D3D12_HEAP_PROPERTIES heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
@@ -731,9 +739,7 @@ void Podo::ResetAssets()
 {
 	m_workloadAssets.clear();
 
-	Asset box;
-
-	box.vertices =
+	std::vector<Vertex> boxVertices =
 	{
 		{DirectX::XMFLOAT3{-0.5f, -0.5f, -0.5f}},
 		{DirectX::XMFLOAT3{-0.5f, +0.5f, -0.5f}},
@@ -746,7 +752,7 @@ void Podo::ResetAssets()
 		{DirectX::XMFLOAT3{+0.5f, -0.5f, +0.5f}}
 	};
 
-	box.indices =
+	std::vector<uint32_t> boxIndices =
 	{
 		0, 1, 2,  0, 2, 3,
 		4, 6, 5,  4, 7, 6,
@@ -759,15 +765,17 @@ void Podo::ResetAssets()
 	DirectX::ResourceUploadBatch resourceUpload(m_device.Get());
 	resourceUpload.Begin();
 	{
-		box.CreateBuffers(m_device.Get(), resourceUpload);
+		Asset boxAsset;
+		boxAsset.Create(m_device.Get(), resourceUpload, std::move(boxVertices), std::move(boxIndices));
+
+		//NOTE: ComPtr<ID3D12Resource> 초기화는 곧바로 일어나므로, 바로 이렇게 move해도 됨
+		m_workloadAssets["Box"] = std::move(boxAsset);
 	}
 	auto uploadFinished = resourceUpload.End(m_commandQueue.Get());
 
-	box.UpdateBufferViews();
-
+	//Note: 커맨드 큐에 제출된 자원 복사 작업은 이후 제출될 렌더 명령들과 순서가 지켜지기에 굳이 대기가 필요하지 않지만,
+	//		End(..)가 반환하는 std::future에 의해 어쩔 수 없이 대기가 발생함을 코드로 표기해놓기로 함
 	uploadFinished.wait();
-
-	m_workloadAssets["Box"] = std::move(box);
 }
 
 void Podo::ResetObjects()
@@ -776,29 +784,40 @@ void Podo::ResetObjects()
 
 	{
 		Object boxObject;
-		boxObject.asset = &m_workloadAssets.at("Box");
+		boxObject.Create(m_device.Get(), &m_workloadAssets.at("Box"));
 
-		DirectX::XMVECTOR position	= DirectX::XMVectorSet(0.0f, 0.0f, 3.0f, 1.0f);
-		DirectX::XMVECTOR direction = DirectX::XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
-		DirectX::XMVECTOR up		= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		boxObject.SetWorldSpace(position, direction, up);
-		boxObject.CreateConstantBuffer(m_device.Get());
+		DirectX::XMVECTOR scale			= DirectX::XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR lookDirection	= DirectX::XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR upDirection	= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		DirectX::XMVECTOR position		= DirectX::XMVectorSet(0.0f, 0.0f, 3.0f, 1.0f);
+		boxObject.SetScale(scale);
+		boxObject.SetRotation(lookDirection, upDirection);
+		boxObject.SetPosition(position);
+		boxObject.UpdateWorldMatrix();
 
 		m_workloadObjects["HorizontalBoxObject"] = std::move(boxObject);
 	}
 
 	{
-		Object verticalBoxObject;
-		verticalBoxObject.asset = &m_workloadAssets.at("Box");
+		Object boxObject;
+		boxObject.Create(m_device.Get(), &m_workloadAssets.at("Box"));
 
-		DirectX::XMVECTOR position	= DirectX::XMVectorSet(2.0f, 0.0f, 5.0f, 1.0f);
-		DirectX::XMVECTOR direction	= DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-		DirectX::XMVECTOR up		= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		verticalBoxObject.SetWorldSpace(position, direction, up);
-		verticalBoxObject.CreateConstantBuffer(m_device.Get());
+		DirectX::XMVECTOR scale			= DirectX::XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR lookDirection	= DirectX::XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR upDirection	= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		DirectX::XMVECTOR position		= DirectX::XMVectorSet(2.0f, 0.0f, 5.0f, 1.0f);
+		boxObject.SetScale(scale);
+		boxObject.SetRotation(lookDirection, upDirection);
+		boxObject.SetPosition(position);
+		boxObject.UpdateWorldMatrix();
 
-		m_workloadObjects["VerticalBoxObject"] = std::move(verticalBoxObject);
+		m_workloadObjects["VerticalBoxObject"] = std::move(boxObject);
 	}
+}
+
+void Podo::ResetCamera()
+{
+	m_workloadCamera.Create(m_device.Get());
 }
 
 void Podo::ResetCBVSRVUAV()
@@ -809,12 +828,12 @@ void Podo::ResetCBVSRVUAV()
 	for (auto& [name, object] : m_workloadObjects)
 	{
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-		cbvDesc.BufferLocation	= object.constantBuffer->GetGPUVirtualAddress();
-		cbvDesc.SizeInBytes		= static_cast<UINT>(object.constantBuffer->GetDesc().Width);
+		cbvDesc.BufferLocation	= object.GetWorldMatrixConstantBufferGPUAddress();
+		cbvDesc.SizeInBytes		= object.GetWorldMatrixConstantBufferWidth();
 
 		m_device->CreateConstantBufferView(&cbvDesc, cpuHandle);
 
-		object.constantBufferViewGPUHandle = gpuHandle;
+		object.SetWorldMatrixConstantBufferViewGPUHandle(gpuHandle);
 
 		cpuHandle.Offset(1, m_descriptorHeapCBVSRVUAVIncrementSize);
 		gpuHandle.Offset(1, m_descriptorHeapCBVSRVUAVIncrementSize);
@@ -826,11 +845,13 @@ void Podo::ResetRootSignature()
 	CD3DX12_ROOT_PARAMETER rootParameter[ROOT_PARAMETER_COUNT] = {};
 
 	CD3DX12_DESCRIPTOR_RANGE objectConstantTable[1] = {};
-
-	UINT objectDescriptorNum = 1;
-	objectConstantTable[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, objectDescriptorNum, 0, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
-
+	UINT objectDescriptorsNum		= 1;
+	UINT objectBaseShaderRegister	= 0;
+	objectConstantTable[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, objectDescriptorsNum, objectBaseShaderRegister, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND);
 	rootParameter[OBJECT_CONSTANT].InitAsDescriptorTable(1, objectConstantTable);
+
+	UINT cameraShaderRegister = objectBaseShaderRegister + objectDescriptorsNum;
+	rootParameter[CAMERA_CONSTANT].InitAsConstantBufferView(cameraShaderRegister, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc
 	(
@@ -879,16 +900,16 @@ void Podo::ResetPipelineStateObject()
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc = { inputElementDesc, _countof(inputElementDesc) };
 
-	ComPtr<ID3DBlob> vs;
-	ComPtr<ID3DBlob> ps;
-	ThrowIfFailed(D3DReadFileToBlob(L"VertexShader.cso", &vs));
-	ThrowIfFailed(D3DReadFileToBlob(L"PixelShader.cso", &ps));
+	ComPtr<ID3DBlob> vertexShader;
+	ComPtr<ID3DBlob> pixelShader;
+	ThrowIfFailed(D3DReadFileToBlob(L"VertexShader.cso", &vertexShader));
+	ThrowIfFailed(D3DReadFileToBlob(L"PixelShader.cso", &pixelShader));
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateObjectDesc	= {};
 	pipelineStateObjectDesc.InputLayout							= inputLayoutDesc;
 	pipelineStateObjectDesc.pRootSignature						= m_basicRootSignature.Get();
-	pipelineStateObjectDesc.VS									= CD3DX12_SHADER_BYTECODE(vs.Get());
-	pipelineStateObjectDesc.PS									= CD3DX12_SHADER_BYTECODE(ps.Get());
+	pipelineStateObjectDesc.VS									= CD3DX12_SHADER_BYTECODE(vertexShader.Get());
+	pipelineStateObjectDesc.PS									= CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 	pipelineStateObjectDesc.RasterizerState						= CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	pipelineStateObjectDesc.BlendState							= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	pipelineStateObjectDesc.DepthStencilState					= CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -910,10 +931,10 @@ void Podo::ResetImGui()
 	m_imGuiDescriptorHeapAllocator.Create(m_device.Get(), m_descriptorHeapCBVSRVUAV.Get(), m_descriptorHeapCBVSRVUAVCapacityForGUI);
 
 	ImGui_ImplDX12_InitInfo initInfo = {};
-	initInfo.Device = m_device.Get();
-	initInfo.CommandQueue = m_commandQueue.Get();
-	initInfo.NumFramesInFlight = 1;
-	initInfo.RTVFormat = m_optionHDR.IsActive() ? m_screenBackBufferFormatHDR : m_screenBackBufferFormatSDR;
+	initInfo.Device				= m_device.Get();
+	initInfo.CommandQueue		= m_commandQueue.Get();
+	initInfo.NumFramesInFlight	= 1;
+	initInfo.RTVFormat			= m_optionHDR.IsActive() ? m_screenBackBufferFormatHDR : m_screenBackBufferFormatSDR;
 
 	initInfo.SrvDescriptorHeap = m_descriptorHeapCBVSRVUAV.Get();
 	initInfo.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* pOutCpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE* outGpuHandle)

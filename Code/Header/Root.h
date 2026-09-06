@@ -1,6 +1,7 @@
 enum RootParameter
 {
 	OBJECT_CONSTANT,
+	CAMERA_CONSTANT,
 
 	ROOT_PARAMETER_COUNT
 };

@@ -15,9 +15,11 @@
 #include <d3d12.h>
 #include <d3dcommon.h>
 #include <DirectXMath.h>
+#include <DirectXColors.h>
 #include <windows.h>
 #include <dxgi.h>
 #include <pix3.h>
+#include <format>
 #include <string>
 #include <cstdlib>
 
@@ -29,7 +31,7 @@ void Podo::Update()
 	PIXScopedEvent(PIX_COLOR_INDEX(1), L"CPU: 1. Frame Time");
 
 	{
-		PIXScopedEvent(PIX_COLOR_INDEX(2), L"CPU: 2. Fence Waiting");
+		PIXScopedEvent(PIX_COLOR_INDEX(2), L"CPU: 2. Wait GPU");
 
 		FlushCommandQueue();
 	}
@@ -100,44 +102,50 @@ void Podo::UpdateWorld()
 	{
 		Object& horizontalBoxObject = m_workloadObjects.at("HorizontalBoxObject");
 
-		XMVECTOR position	= XMVectorSet(oscillation, 0.0f, 3.0f, 1.0f);
-		XMVECTOR direction	= XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
-		XMVECTOR up			= XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		horizontalBoxObject.SetWorldSpace(position, direction, up);
+		DirectX::XMVECTOR scale			= DirectX::XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR lookDirection	= DirectX::XMVectorSet(1.0f, 0.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR upDirection	= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		DirectX::XMVECTOR position		= XMVectorSet(oscillation, 0.0f, 3.0f, 1.0f);
+		horizontalBoxObject.SetScale(scale);
+		horizontalBoxObject.SetRotation(lookDirection, upDirection);
+		horizontalBoxObject.SetPosition(position);
+		horizontalBoxObject.UpdateWorldMatrix();
 	}
 
 	{
 		Object& verticalBoxObject = m_workloadObjects.at("VerticalBoxObject");
 
-		XMVECTOR position	= XMVectorSet(2.0f, oscillation, 5.0f, 1.0f);
-		XMVECTOR direction	= XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-		XMVECTOR up			= XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		verticalBoxObject.SetWorldSpace(position, direction, up);
+		DirectX::XMVECTOR scale			= DirectX::XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR lookDirection	= DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR upDirection	= DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		DirectX::XMVECTOR position		= XMVectorSet(2.0f, oscillation, 5.0f, 1.0f);
+		verticalBoxObject.SetScale(scale);
+		verticalBoxObject.SetRotation(lookDirection, upDirection);
+		verticalBoxObject.SetPosition(position);
+		verticalBoxObject.UpdateWorldMatrix();
 	}
 
-	XMVECTOR cameraPosition	= XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
-	XMVECTOR cameraTarget	= XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f);
-	XMVECTOR cameraUp		= XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX viewMatrix		= XMMatrixLookAtLH
-	(
-		cameraPosition,
-		cameraTarget,
-		cameraUp
-	);
-
-	XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH
-	(
-		XM_PIDIV4,
-		m_screenBackBufferAspectRatio,
-		0.1f,
-		1000.0f
-	);
-
-	XMMATRIX viewProjectionMatrix = viewMatrix * projectionMatrix;
-
-	for (auto& [name, object] : m_workloadObjects)
 	{
-		object.UpdateWorldViewProjection(viewProjectionMatrix);
+		constexpr float radius	= 10.0f;
+		constexpr float height	= 5.0f;
+		constexpr float speed	= 0.3f;
+
+		float orbitAngle = timeSecond * speed;
+
+		XMVECTOR cameraPosition	= XMVectorSet
+		(
+			XMScalarCos(orbitAngle) * radius,
+			height,
+			XMScalarSin(orbitAngle) * radius,
+			1.0f
+		);
+		XMVECTOR cameraTarget	= XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+		XMVECTOR cameraUp		= XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+		m_workloadCamera.SetPosition(cameraPosition);
+		m_workloadCamera.SetTarget(cameraTarget);
+		m_workloadCamera.SetUpDirection(cameraUp);
+		m_workloadCamera.UpdateViewProjMatrix(m_screenBackBufferAspectRatio);
 	}
 }
 
@@ -180,9 +188,7 @@ void Podo::UpdateRender()
 			m_commandList->RSSetViewports(1, &m_screenViewPort);
 			m_commandList->RSSetScissorRects(1, &m_screenScissorRectangle);
 
-			FLOAT sinZeroToOne = (XMScalarSin(static_cast<float>(m_worldTimerTotal.GetTimeMilli()) / 1000) + 1) / 2;
-			FLOAT pTestColor[4] = { sinZeroToOne, sinZeroToOne, sinZeroToOne, 1.0f };
-			m_commandList->ClearRenderTargetView(cpuHandleRTV, pTestColor, 0, nullptr);
+			m_commandList->ClearRenderTargetView(cpuHandleRTV, DirectX::Colors::Black, 0, nullptr);
 			m_commandList->ClearDepthStencilView
 			(
 				m_descriptorHeapDSVStartHandleCPU,
@@ -194,6 +200,7 @@ void Podo::UpdateRender()
 			);
 		}
 
+		if(m_engineState == ENGINE_STATE_RUN)
 		{
 			PIXScopedEvent(PIX_COLOR_INDEX(7), L"CPU: 7. Draw Scene");
 			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(3), L"GPU: 3. Draw Scene");
@@ -202,22 +209,27 @@ void Podo::UpdateRender()
 			m_commandList->SetGraphicsRootSignature(m_basicRootSignature.Get());
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			for (auto& [name, object] : m_workloadObjects)
+			m_commandList->SetGraphicsRootConstantBufferView
+			(
+				CAMERA_CONSTANT,
+				m_workloadCamera.GetViewProjMatrixConstantBufferGPUAddress()
+			);
+
+			for (const auto& [name, object] : m_workloadObjects)
 			{
-				const Asset* asset = object.asset;
+				const Asset* asset = object.GetAsset();
 
-				m_commandList->IASetVertexBuffers(0, 1, &asset->vertexBufferView);
-				m_commandList->IASetIndexBuffer(&asset->indexBufferView);
-
+				m_commandList->IASetVertexBuffers(0, 1, asset->GetVertexBufferView());
+				m_commandList->IASetIndexBuffer(asset->GetIndexBufferView());
 				m_commandList->SetGraphicsRootDescriptorTable
 				(
 					OBJECT_CONSTANT,
-					object.constantBufferViewGPUHandle
+					object.GetWorldMatrixConstantBufferViewGPUHandle()
 				);
 
 				m_commandList->DrawIndexedInstanced
 				(
-					static_cast<UINT>(asset->indices.size()),
+					asset->GetIndexCount(),
 					1,
 					0,
 					0,

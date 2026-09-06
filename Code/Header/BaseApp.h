@@ -36,8 +36,8 @@ protected:
 	BaseApp() = delete;
 	BaseApp(const BaseApp& sourceApp) = delete;
 	BaseApp(BaseApp&& sourceApp) noexcept = delete;
-	BaseApp& operator = (const BaseApp& sourceApp) = delete;
-	BaseApp& operator = (BaseApp&& sourceApp) = delete;
+	BaseApp& operator=(const BaseApp& sourceApp) = delete;
+	BaseApp& operator=(BaseApp&& sourceApp) = delete;
 
 protected:
 

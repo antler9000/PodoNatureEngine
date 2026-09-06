@@ -4,6 +4,7 @@
 #include "State.h"
 #include "Option.h"
 #include "Timer.h"
+#include "Camera.h"
 #include "Object.h"
 #include "Asset.h"
 #include "Alloc.h"
@@ -101,6 +102,7 @@ private:
 	void ResetDSV();
 	void ResetAssets();
 	void ResetObjects();
+	void ResetCamera();
 	void ResetCBVSRVUAV();
 	void ResetRootSignature();
 	void ResetPipelineStateObject();
@@ -192,6 +194,7 @@ private:
 
 	std::unordered_map<std::string, Asset>	m_workloadAssets;
 	std::unordered_map<std::string, Object>	m_workloadObjects;
+	Camera									m_workloadCamera;
 
 	UINT									m_descriptorHeapCBVSRVUAVIncrementSize				= 0;
 	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapCBVSRVUAV;
