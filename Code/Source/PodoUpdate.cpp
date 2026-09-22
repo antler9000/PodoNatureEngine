@@ -205,8 +205,8 @@ void Podo::UpdateRender()
 			PIXScopedEvent(PIX_COLOR_INDEX(7), L"CPU: 7. Draw Scene");
 			PIXScopedEvent(m_commandList.Get(), PIX_COLOR_INDEX(3), L"GPU: 3. Draw Scene");
 
-			m_commandList->SetPipelineState(m_basicPipelineStateObject.Get());
-			m_commandList->SetGraphicsRootSignature(m_basicRootSignature.Get());
+			m_commandList->SetPipelineState(m_renderConfigurePipelineStateObject.Get());
+			m_commandList->SetGraphicsRootSignature(m_renderConfigureRootSignature.Get());
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 			m_commandList->SetGraphicsRootConstantBufferView
@@ -227,14 +227,7 @@ void Podo::UpdateRender()
 					object.GetWorldMatrixConstantBufferViewGPUHandle()
 				);
 
-				m_commandList->DrawIndexedInstanced
-				(
-					asset->GetIndexCount(),
-					1,
-					0,
-					0,
-					0
-				);
+				m_commandList->DrawIndexedInstanced(asset->GetIndexCount(), 1, 0, 0, 0);
 			}
 		}
 
@@ -321,13 +314,12 @@ void Podo::UpdateGUI()
 void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPos)
 {
 	ImGui::SetNextWindowPos(imGuiCenterPos, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(700.0f, 550.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(700.0f, 400.0f) * m_optionGUI.GetMasterScale(), ImGuiCond_Always);
 
 	ImGui::Begin("Prepare", nullptr, m_imGuiBasicFlag);
 
 	bool backButtonClicked = ImGui::Button("Start", m_imGuiSmallButtonSize);
-	bool escKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
-	if (backButtonClicked == true || escKeyPressed == true)
+	if (backButtonClicked == true)
 	{
 		m_engineState = ENGINE_STATE_RUN;
 		WorldTimersReset();
@@ -358,9 +350,9 @@ void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCent
 		m_hWnd = nullptr;
 	}
 
-	bool previousFullScreenState = m_optionFullScreen.IsActive();
-	bool previousHDRState = m_optionHDR.IsActive();
-	int previousGUIState = m_optionGUI.masterSize;
+	bool	previousFullScreenState	= m_optionFullScreen.IsActive();
+	bool	previousHDRState		= m_optionHDR.IsActive();
+	int		previousGUIState		= m_optionGUI.masterSize;
 
 	ImGui::Dummy(m_imGuiSpacingSize);
 
@@ -374,20 +366,7 @@ void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCent
 		ImGui::EndDisabled();
 		ImGui::SameLine();
 		ImGui::BeginDisabled(m_optionHDR.IsSupported() == false);
-		ImGui::Checkbox("HDR(Partially Implemented)", &m_optionHDR.userEnabled);
-		ImGui::EndDisabled();
-	}
-
-	ImGui::Dummy(m_imGuiSpacingSize);
-	ImGui::Separator();
-
-	{
-		ImGui::Text("Graphics");
-		ImGui::BeginDisabled(m_optionRayTracing.IsSupported() == false);
-		ImGui::Checkbox("Ray Tracing(Not Implemented)", &m_optionRayTracing.userEnabled);
-		ImGui::EndDisabled();
-		ImGui::BeginDisabled(m_optionMeshShader.IsSupported() == false);
-		ImGui::Checkbox("Mesh Shader(Not Implemented)", &m_optionMeshShader.userEnabled);
+		ImGui::Checkbox("HDR", &m_optionHDR.userEnabled);
 		ImGui::EndDisabled();
 	}
 
@@ -404,9 +383,9 @@ void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCent
 		}
 	}
 
-	bool nowFullScreenState = m_optionFullScreen.IsActive();
-	bool nowHDRState = m_optionHDR.IsActive();
-	int nowGUIState = m_optionGUI.masterSize;
+	bool	nowFullScreenState	= m_optionFullScreen.IsActive();
+	bool	nowHDRState			= m_optionHDR.IsActive();
+	int		nowGUIState			= m_optionGUI.masterSize;
 
 	if (previousFullScreenState != nowFullScreenState)
 	{
@@ -418,7 +397,7 @@ void Podo::UpdatePrepareStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCent
 	}
 	if (previousGUIState != nowGUIState)
 	{
-		m_needResetPSO = true;
+		m_needResetRenderConfigure = true;
 	}
 
 	ImGui::End();
@@ -445,12 +424,12 @@ void Podo::UpdateRunStateGUI(ImGuiViewport* pImGuiViewPort, ImVec2 imGuiCenterPo
 		ThrowIfFailed(PIXEndCapture(false));
 #endif
 
-		m_needResetScreenMode	= true;
-		m_needResetFactory		= true;
-		m_needResetDevice		= true;
-		m_needResetSwapChain	= true;
-		m_needResetAsset		= true;
-		m_needResetPSO			= true;
+		m_needResetScreenMode		= true;
+		m_needResetFactory			= true;
+		m_needResetDevice			= true;
+		m_needResetSwapChain		= true;
+		m_needResetWorkload			= true;
+		m_needResetRenderConfigure	= true;
 	}
 
 	ImGui::End();

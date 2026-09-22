@@ -50,7 +50,7 @@ void Podo::Reset()
 		m_needResetFactory		= true;
 		m_needResetSwapChain	= true;
 
-		m_needResetScreenMode = false;
+		m_needResetScreenMode	= false;
 	}
 
 	if (NeedResetFactory() == true)
@@ -61,7 +61,7 @@ void Podo::Reset()
 		m_needResetDevice		= true;
 		m_needResetSwapChain	= true;
 
-		m_needResetFactory = false;
+		m_needResetFactory		= false;
 	}
 
 	if (NeedResetDevice() == true)
@@ -77,11 +77,11 @@ void Podo::Reset()
 		ResetDescriptorHeapDSV();
 		ResetDescriptorHeapCBVSRVUAV();
 
-		m_needResetSwapChain	= true;
-		m_needResetAsset		= true;
-		m_needResetPSO			= true;
+		m_needResetSwapChain		= true;
+		m_needResetWorkload			= true;
+		m_needResetRenderConfigure	= true;
 
-		m_needResetDevice = false;
+		m_needResetDevice			= false;
 	}
 	
 	if (NeedResetSwapChain() == true)
@@ -96,12 +96,12 @@ void Podo::Reset()
 		ResetRTV();
 		ResetDSV();
 
-		m_needResetPSO = true;
+		m_needResetRenderConfigure	= true;
 
-		m_needResetSwapChain = false;
+		m_needResetSwapChain		= false;
 	}
 
-	if (NeedResetAsset() == true)
+	if (NeedResetWorkload() == true)
 	{
 		ResetAssets();
 		ResetObjects();
@@ -109,16 +109,16 @@ void Podo::Reset()
 
 		ResetCBVSRVUAV();
 
-		m_needResetAsset = false;
+		m_needResetWorkload = false;
 	}
 
-	if (NeedResetPSO() == true)
+	if (NeedResetRenderConfigure() == true)
 	{
 		ResetRootSignature();
 		ResetPipelineStateObject();
 		ResetImGui();
 
-		m_needResetPSO = false;
+		m_needResetRenderConfigure = false;
 	}
 
 	m_optionFullScreen.DebugPrint();
@@ -126,8 +126,6 @@ void Podo::Reset()
 	m_optionVSync.DebugPrint();
 	m_optionTearing.DebugPrint();
 	m_optionHDR.DebugPrint();
-	m_optionRayTracing.DebugPrint();
-	m_optionMeshShader.DebugPrint();
 	m_optionGUI.DebugPrint();
 }
 
@@ -286,8 +284,6 @@ bool Podo::ResetOutput(IDXGIAdapter3* pAdapter)
 
 void Podo::ResetDevice()
 {
-	m_device5.Reset();
-	m_device2.Reset();
 	m_device.Reset();
 
 #ifdef _DEBUG
@@ -357,33 +353,6 @@ void Podo::ResetDevice()
 			m_optionHDR.SetFormatSupported(false);
 		}
 	}
-
-	{
-		m_optionMeshShader.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device2)));
-		m_optionRayTracing.SetDeviceSupported(SUCCEEDED(m_device.As(&m_device5)));
-
-		if (m_optionMeshShader.deviceSupported == true)
-		{
-			D3D12_FEATURE_DATA_D3D12_OPTIONS7 meshShaderFeatureQuery = {};
-			m_device2->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &meshShaderFeatureQuery, sizeof(meshShaderFeatureQuery));
-			m_optionMeshShader.SetFeatureSupported(meshShaderFeatureQuery.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED);
-		}
-		else
-		{
-			m_optionMeshShader.SetFeatureSupported(false);
-		}
-
-		if (m_optionRayTracing.deviceSupported == true)
-		{
-			D3D12_FEATURE_DATA_D3D12_OPTIONS5 rayTracingFeatureQuery = {};
-			m_device5->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &rayTracingFeatureQuery, sizeof(rayTracingFeatureQuery));
-			m_optionRayTracing.SetFeatureSupported(rayTracingFeatureQuery.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
-		}
-		else
-		{
-			m_optionRayTracing.SetFeatureSupported(false);
-		}
-	}
 }
 
 void Podo::ResetFence()
@@ -433,8 +402,6 @@ void Podo::ResetCommandAllocator()
 
 void Podo::ResetCommandList()
 {
-	m_commandList6.Reset();
-	m_commandList4.Reset();
 	m_commandList.Reset();
 
 	ThrowIfFailed
@@ -449,19 +416,17 @@ void Podo::ResetCommandList()
 		)
 	);
 
-	m_optionRayTracing.SetCommandListSupported(SUCCEEDED(m_commandList.As(&m_commandList4)));
-	m_optionMeshShader.SetCommandListSupported(SUCCEEDED(m_commandList.As(&m_commandList6)));
-
 	m_commandList->Close();
 }
+
 
 void Podo::ResetDescriptorHeapRTV()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-	descriptorHeapDesc.NumDescriptors	= m_screenBackBufferCount;
-	descriptorHeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	descriptorHeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	descriptorHeapDesc.NodeMask			= 0;
+	descriptorHeapDesc.NumDescriptors = m_screenBackBufferCount;
+	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descriptorHeapDesc.NodeMask = 0;
 
 	ThrowIfFailed
 	(
@@ -479,10 +444,10 @@ void Podo::ResetDescriptorHeapRTV()
 void Podo::ResetDescriptorHeapDSV()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-	descriptorHeapDesc.NumDescriptors	= 1;
-	descriptorHeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	descriptorHeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	descriptorHeapDesc.NodeMask			= 0;
+	descriptorHeapDesc.NumDescriptors = 1;
+	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descriptorHeapDesc.NodeMask = 0;
 
 	ThrowIfFailed
 	(
@@ -525,6 +490,7 @@ void Podo::ResetDescriptorHeapCBVSRVUAV()
 	m_descriptorHeapCBVSRVUAVStartHandleGPUForRender = m_descriptorHeapCBVSRVUAVStartHandleGPUForGUI;
 	m_descriptorHeapCBVSRVUAVStartHandleGPUForRender.Offset(m_descriptorHeapCBVSRVUAVCapacityForGUI, m_descriptorHeapCBVSRVUAVIncrementSize);
 }
+
 
 void Podo::ResetHDRSwapChainSupport()
 {
@@ -886,7 +852,7 @@ void Podo::ResetRootSignature()
 			0,
 			serializedRootSig->GetBufferPointer(),
 			serializedRootSig->GetBufferSize(),
-			IID_PPV_ARGS(m_basicRootSignature.ReleaseAndGetAddressOf())
+			IID_PPV_ARGS(m_renderConfigureRootSignature.ReleaseAndGetAddressOf())
 		)
 	);
 }
@@ -907,7 +873,7 @@ void Podo::ResetPipelineStateObject()
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateObjectDesc	= {};
 	pipelineStateObjectDesc.InputLayout							= inputLayoutDesc;
-	pipelineStateObjectDesc.pRootSignature						= m_basicRootSignature.Get();
+	pipelineStateObjectDesc.pRootSignature						= m_renderConfigureRootSignature.Get();
 	pipelineStateObjectDesc.VS									= CD3DX12_SHADER_BYTECODE(vertexShader.Get());
 	pipelineStateObjectDesc.PS									= CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 	pipelineStateObjectDesc.RasterizerState						= CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -921,7 +887,7 @@ void Podo::ResetPipelineStateObject()
 	pipelineStateObjectDesc.SampleDesc.Quality					= 0;
 	pipelineStateObjectDesc.DSVFormat							= m_screenDepthStencilBufferFormat;
 	
-	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&pipelineStateObjectDesc, IID_PPV_ARGS(m_basicPipelineStateObject.ReleaseAndGetAddressOf())));
+	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&pipelineStateObjectDesc, IID_PPV_ARGS(m_renderConfigurePipelineStateObject.ReleaseAndGetAddressOf())));
 }
 
 void Podo::ResetImGui()
@@ -979,5 +945,5 @@ void Podo::ResetImGui()
 	colors[ImGuiCol_SeparatorHovered]	= ImVec4(0.45f, 0.38f, 0.34f, 0.78f);
 	colors[ImGuiCol_SeparatorActive]	= ImVec4(0.55f, 0.45f, 0.43f, 0.90f);
 
-	m_imGuiInitialized = true;
+	m_renderConfigureImGuiInitialized = true;
 }

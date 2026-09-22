@@ -136,6 +136,8 @@ private:
 	//NOTE: ImGui에 넘겨주는 콜백 함수 속에서 기능해야 하므로 static으로 둠
 	static inline		ImGuiDescriptorHeapAllocator	m_imGuiDescriptorHeapAllocator				= {};
 
+private:
+
 	static constexpr	UINT							m_screenBackBufferCount						= 2;
 	static constexpr	DXGI_FORMAT						m_screenBackBufferFormatSDR					= DXGI_FORMAT_R8G8B8A8_UNORM;
 	static constexpr	DXGI_FORMAT						m_screenBackBufferFormatHDR					= DXGI_FORMAT_R10G10B10A2_UNORM;
@@ -148,7 +150,6 @@ private:
 
 	static constexpr	ImGuiWindowFlags				m_imGuiBasicFlag							= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
 																									| ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings;
-	static constexpr	unsigned int					m_inputDragThresholdDist					= 20;
 
 private:
 
@@ -162,8 +163,6 @@ private:
 	DXGI_OUTPUT_DESC1						m_dxgiOutputDesc									= {};		//NOTE: (옵션) HDR 모니터 정보 획득
 	
 	ComPtr<ID3D12Device>					m_device;
-	ComPtr<ID3D12Device2>					m_device2;														//NOTE: (옵션) 메시 셰이더
-	ComPtr<ID3D12Device5>					m_device5;														//NOTE: (옵션) 레이 트레이싱
 	
 	ComPtr<ID3D12Fence>						m_fence;
 	UINT64									m_fenceCurrent										= 0;
@@ -172,9 +171,20 @@ private:
 	ComPtr<ID3D12CommandQueue>				m_commandQueue;
 	ComPtr<ID3D12CommandAllocator>			m_commandAllocator;
 	ComPtr<ID3D12GraphicsCommandList>		m_commandList;
-	ComPtr<ID3D12GraphicsCommandList4>		m_commandList4;													//NOTE: (옵션) 레이 트레이싱
-	ComPtr<ID3D12GraphicsCommandList6>		m_commandList6;													//NOTE: (옵션) 메시 셰이더 생성
 	
+	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapRTV;
+	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapDSV;
+	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapCBVSRVUAV;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapRTVStartHandleCPU;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapDSVStartHandleCPU;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleCPUForGUI;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleGPUForGUI;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleCPUForRender;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleGPUForRender;
+	UINT									m_descriptorHeapRTVIncrementSize					= 0;
+	UINT									m_descriptorHeapDSVIncrementSize					= 0;
+	UINT									m_descriptorHeapCBVSRVUAVIncrementSize				= 0;
+
 	ComPtr<IDXGISwapChain3>					m_screenSwapChain;												//NOTE: (기본) 백 버퍼 인덱스 추적
 	ComPtr<ID3D12Resource>					m_screenBackBuffers[m_screenBackBufferCount];
 	UINT									m_screenBackBufferIndex								= 0;
@@ -185,34 +195,15 @@ private:
 	D3D12_RECT								m_screenScissorRectangle							= {};
 	ComPtr<ID3D12Resource>					m_screenDepthStencilBuffer;
 	
-	UINT									m_descriptorHeapRTVIncrementSize					= 0;
-	UINT									m_descriptorHeapDSVIncrementSize					= 0;
-	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapRTV;
-	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapDSV;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapRTVStartHandleCPU;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapDSVStartHandleCPU;
-
 	std::unordered_map<std::string, Asset>	m_workloadAssets;
 	std::unordered_map<std::string, Object>	m_workloadObjects;
 	Camera									m_workloadCamera;
 
-	UINT									m_descriptorHeapCBVSRVUAVIncrementSize				= 0;
-	ComPtr<ID3D12DescriptorHeap>			m_descriptorHeapCBVSRVUAV;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleCPUForGUI;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleGPUForGUI;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleCPUForRender;
-	CD3DX12_GPU_DESCRIPTOR_HANDLE			m_descriptorHeapCBVSRVUAVStartHandleGPUForRender;
+	ComPtr<ID3D12RootSignature>				m_renderConfigureRootSignature;
+	ComPtr<ID3D12PipelineState>				m_renderConfigurePipelineStateObject;
+	bool									m_renderConfigureImGuiInitialized					= false;
 
-	ComPtr<ID3D12RootSignature>				m_basicRootSignature;
-	ComPtr<ID3D12PipelineState>				m_basicPipelineStateObject;
-
-	bool									m_imGuiInitialized									= false;
-	ImVec2									m_imGuiSpacingSize									= ImVec2(0.0f, 10.0f);
-	ImVec2									m_imGuiSmallButtonSize								= ImVec2(120.0f, 40.0f);
-	ImVec2									m_imGuiMediumButtonSize								= ImVec2(240.0f, 40.0f);
-	ImVec2									m_imGuiLargeButtonSize								= ImVec2(360.0f, 40.0f);
-
-	bool									NeedReset() const									{ return (NeedResetScreenMode() || NeedResetFactory() || NeedResetDevice() || NeedResetSwapChain() || NeedResetAsset() || NeedResetPSO()); }
+	bool									NeedReset() const									{ return (NeedResetScreenMode() || NeedResetFactory() || NeedResetDevice() || NeedResetSwapChain() || NeedResetWorkload() || NeedResetRenderConfigure()); }
 	bool									NeedResetScreenMode() const							{ return m_needResetScreenMode; }
 	bool									m_needResetScreenMode								= true;
 	bool									NeedResetFactory() const							{ return (m_needResetFactory || (m_dxgiFactory->IsCurrent() == FALSE)); }
@@ -221,10 +212,10 @@ private:
 	bool									m_needResetDevice									= true;
 	bool									NeedResetSwapChain() const							{ return m_needResetSwapChain; }
 	bool									m_needResetSwapChain								= true;
-	bool									NeedResetAsset() const								{ return m_needResetAsset; }
-	bool									m_needResetAsset									= true;
-	bool									NeedResetPSO() const								{ return m_needResetPSO; }
-	bool									m_needResetPSO										= true;
+	bool									NeedResetWorkload() const							{ return m_needResetWorkload; }
+	bool									m_needResetWorkload									= true;
+	bool									NeedResetRenderConfigure() const					{ return m_needResetRenderConfigure; }
+	bool									m_needResetRenderConfigure							= true;
 
 	bool									IsUpdateStopped() const								{ return (IsWorldStopped() && IsRenderStopped()); }
 	bool									IsWorldStopped() const								{ return (m_engineState != ENGINE_STATE_RUN); }
@@ -241,6 +232,11 @@ private:
 
 	EngineState								m_engineState										= ENGINE_STATE_PREPARE;
 
+	ImVec2									m_imGuiSpacingSize									= ImVec2(0.0f, 10.0f);
+	ImVec2									m_imGuiSmallButtonSize								= ImVec2(120.0f, 40.0f);
+	ImVec2									m_imGuiMediumButtonSize								= ImVec2(240.0f, 40.0f);
+	ImVec2									m_imGuiLargeButtonSize								= ImVec2(360.0f, 40.0f);
+
 private:
 
 	OptionFullScreen	m_optionFullScreen;
@@ -248,7 +244,5 @@ private:
 	OptionVSync			m_optionVSync;
 	OptionTearing		m_optionTearing;
 	OptionHDR			m_optionHDR;
-	OptionRayTracing	m_optionRayTracing;
-	OptionMeshShader	m_optionMeshShader;
 	OptionGUI			m_optionGUI;
 };
