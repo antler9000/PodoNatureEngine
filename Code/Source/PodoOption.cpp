@@ -22,8 +22,6 @@ void Podo::OptionSave()
 	fout << "WindowSaveHeight"	<< " " << ((int)m_optionWindowSave.height)					<< '\n';
 	fout << "VSync"				<< " " << (m_optionVSync.userEnabled		? "Yes" : "No") << '\n';
 	fout << "HDR"				<< " " << (m_optionHDR.userEnabled			? "Yes" : "No") << '\n';
-	fout << "RayTracing"		<< " " << (m_optionRayTracing.userEnabled	? "Yes" : "No") << '\n';
-	fout << "MeshShader"		<< " " << (m_optionMeshShader.userEnabled	? "Yes" : "No") << '\n';
 	fout << "GUIMasterSize"		<< " " << (m_optionGUI.masterSize)							<< '\n';
 
 	fout.close();
@@ -82,8 +80,6 @@ void Podo::OptionRestore()
 	m_optionWindowSave.height			= (LONG)windowSaveHeightTemp;
 	m_optionVSync.userEnabled			= vSyncEnabledTemp;
 	m_optionHDR.userEnabled				= hdrEnabledTemp;
-	m_optionRayTracing.userEnabled		= rayTracingEnabledTemp;
-	m_optionMeshShader.userEnabled		= meshShaderEnabledTemp;
 	m_optionGUI.masterSize				= std::clamp(guiMasterSizeTemp, 50, 150);
 }
 
